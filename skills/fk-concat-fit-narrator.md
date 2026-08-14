@@ -32,8 +32,9 @@ For each scene (sorted by display_order, index = IDX starting at 0):
 **Video source** (priority order):
 1. `${OUTDIR}/4k/scene_${IDX3}_${scene_id}.mp4` (canonical local 4K — best quality)
 2. `${OUTDIR}/4k/${scene_id}.mp4` (legacy local 4K fallback)
-3. `${ori}_upscale_url` (4K signed URL)
-4. `${ori}_video_url` (standard quality)
+3. `${OUTDIR}/motion/scene_${IDX3}_${scene_id}.mp4` (`render_mode=motion` Ken Burns)
+4. `${ori}_upscale_url` (4K signed URL)
+5. `${ori}_video_url` (standard quality; may be `file://` for motion)
 
 **TTS source:**
 1. `${OUTDIR}/tts/scene_{IDX3}_{scene_id}.wav`

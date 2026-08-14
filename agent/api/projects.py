@@ -186,6 +186,7 @@ async def create(body: ProjectCreate):
         material=material_id,
         allow_music=create_data.get("allow_music", False),
         allow_voice=create_data.get("allow_voice", False),
+        render_mode=body.render_mode or "cinematic",
     )
 
     # Step 3: Create reference entities (characters, locations, assets) with profiles

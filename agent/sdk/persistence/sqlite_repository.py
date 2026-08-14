@@ -205,6 +205,7 @@ class SQLiteRepository(Repository):
         material: Optional[str] = None,
         allow_music: bool = False,
         allow_voice: bool = False,
+        render_mode: str = "cinematic",
     ) -> Project:
         row = await crud.create_project(
             name=name,
@@ -216,6 +217,7 @@ class SQLiteRepository(Repository):
             material=material,
             allow_music=allow_music,
             allow_voice=allow_voice,
+            render_mode=render_mode or "cinematic",
         )
         return self._row_to_project(row)
 

@@ -103,10 +103,6 @@ class WorkerController:
 
         while not self._shutdown.is_set():
             try:
-                if not client.connected:
-                    await asyncio.sleep(POLL_INTERVAL)
-                    continue
-
                 now = time.time()
                 slots_available = MAX_CONCURRENT_REQUESTS - len(self._active_ids)
                 if slots_available <= 0:
@@ -116,6 +112,11 @@ class WorkerController:
                 pending = await crud.list_actionable_requests(
                     exclude_ids=self._active_ids, limit=slots_available
                 )
+                if not client.connected:
+                    pending = [r for r in pending if await _request_is_motion_video(r)]
+                    if not pending:
+                        await asyncio.sleep(POLL_INTERVAL)
+                        continue
 
                 pending_count = len(pending)
                 await event_bus.emit("worker_tick", {
@@ -227,6 +228,17 @@ async def _resolve_orientation(req: dict) -> str:
         if video and video.get("orientation"):
             return video["orientation"]
     return "VERTICAL"
+
+
+async def _request_is_motion_video(req: dict) -> bool:
+    """Ken Burns jobs do not need the Chrome Flow extension."""
+    if req.get("type") not in ("GENERATE_VIDEO", "REGENERATE_VIDEO"):
+        return False
+    pid = req.get("project_id")
+    if not pid:
+        return False
+    project = await crud.get_project(pid)
+    return (project or {}).get("render_mode") == "motion"
 
 
 async def _process_one(req: dict, deferred: dict = None, retry_after: dict = None):

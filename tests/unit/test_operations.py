@@ -354,6 +354,30 @@ class TestQueueWrappers:
 
 
 # ---------------------------------------------------------------------------
+# Test: motion / Ken Burns path
+# ---------------------------------------------------------------------------
+
+class TestMotionRenderMode:
+    @pytest.mark.asyncio
+    async def test_generate_scene_video_uses_ken_burns_when_motion(self, service, mock_client, base_scene):
+        base_scene["vertical_image_url"] = "https://cdn.example/still.jpg"
+        base_scene["display_order"] = 0
+        project = {"render_mode": "motion", "name": "UAT Motion"}
+        with patch("agent.sdk.services.operations.crud") as mock_crud, \
+             patch("agent.sdk.services.operations._download_still", new_callable=AsyncMock) as mock_dl, \
+             patch("agent.services.post_process.image_to_motion_clip", return_value=True) as mock_kb:
+            mock_crud.get_project = AsyncMock(return_value=project)
+            mock_dl.return_value = True
+
+            result = await service.generate_scene_video(base_scene, "VERTICAL", request_id="req-m")
+
+        mock_client.generate_video.assert_not_called()
+        mock_kb.assert_called_once()
+        assert result["data"]["operations"][0]["status"] == "MEDIA_GENERATION_STATUS_SUCCESSFUL"
+        assert "motion-" in result["data"]["operations"][0]["operation"]["metadata"]["video"]["mediaId"]
+
+
+# ---------------------------------------------------------------------------
 # Test: Singleton init/get
 # ---------------------------------------------------------------------------
 

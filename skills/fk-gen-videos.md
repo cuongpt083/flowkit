@@ -18,7 +18,9 @@ ori=$(echo "$ORI" | tr '[:upper:]' '[:lower:]')
 curl -s "http://127.0.0.1:8100/api/scenes?video_id=<VID>"
 ```
 
-**ABORT** if any scene is missing `${ori}_image_media_id` (UUID) or `${ori}_image_status` != `"COMPLETED"`. Tell user to run `/fk-gen-images` first.
+**ABORT** if any scene is missing `${ori}_image_media_id` or `${ori}_image_status` != `"COMPLETED"`. Tell user to run `/fk-gen-images` first.
+
+If `GET /api/projects/<PID>` has `"render_mode": "motion"`, still submit `GENERATE_VIDEO` the same way. The server turns each still into a Ken Burns clip locally (no Flow/Veo cost). Scene image **URL** must be present (`${ori}_image_url`). Do not require UUID `media_id` for motion. After success, continue with `/fk-concat` or `/fk-concat-fit-narrator` as usual.
 
 ## Step 2: Filter scenes needing video
 

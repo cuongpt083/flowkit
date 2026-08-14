@@ -58,6 +58,8 @@ def _extract_media_id(result: dict, req_type: str) -> str:
                     if uuid_val:
                         logger.info("Extracted mediaId from %s: %s", url_field, uuid_val)
                         return uuid_val
+            if name and not str(name).startswith("CAMS"):
+                return name
             if name:
                 logger.warning("media[0].name is not UUID format: %s", name[:30])
             return None
@@ -78,6 +80,10 @@ def _extract_media_id(result: dict, req_type: str) -> str:
             val = video_meta.get("mediaId", "")
             if val and _is_uuid(val):
                 return val
+            if val and not str(val).startswith("CAMS"):
+                return val
+            if fife:
+                return fife
             # Inline rawBytes format (upscale returns video data directly)
             # Do NOT return mediaGenerationId — it's CAMS format, not UUID (Rule #1)
             if ops[0].get("rawBytes"):

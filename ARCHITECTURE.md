@@ -4,6 +4,10 @@
 Standalone system for AI video production: Chrome extension talks to Google Flow API,
 Python agent manages data locally via SQLite and orchestrates everything.
 
+## Render modes
+
+`project.render_mode`: `cinematic` (default, AI video via Flow) or `motion` (Ken Burns stills via ffmpeg, no video API).
+
 ## Two Components
 
 ### 1. Extension (Chrome)

@@ -25,6 +25,7 @@ Tài liệu này giải thích Flow Kit bằng ngôn ngữ đời thường: cà
 11. [Giới hạn cần biết](#11-giới-hạn-cần-biết)
 12. [Thuật ngữ](#12-thuật-ngữ)
 13. [Không mua Claude: DeepSeek Flash + Qwen 3.7 Plus](#13-không-mua-claude-deepseek-flash--qwen-37-plus)
+14. [Video kiểu Vox / motion graphic (rẻ, phù hợp UAT)](#14-video-kiểu-vox--motion-graphic-rẻ-phù-hợp-uat)
 
 ---
 
@@ -599,6 +600,28 @@ fk-plus() {
 ```
 
 Sau đó mỗi ngày: một cửa sổ `fk-plus`, một cửa sổ `fk-flash` (agent + Chrome Flow vẫn phải mở như [phần 5](#5-mỗi-ngày-mở-máy-làm-việc)).
+
+---
+
+## 14. Video kiểu Vox / motion graphic (rẻ, phù hợp UAT)
+
+Không sinh clip AI từng cảnh. Máy lấy **ảnh cảnh** + Ken Burns (phóng/kéo chậm) + TTS/chữ/nhạc như cũ.
+
+1. Khi tạo project, thêm `"render_mode": "motion"` (mặc định là `cinematic` = video AI).
+
+   Hoặc sửa project có sẵn:
+
+   ```bash
+   curl -s -X PATCH http://127.0.0.1:8100/api/projects/<PID> \
+     -H "Content-Type: application/json" \
+     -d '{"render_mode":"motion"}'
+   ```
+
+2. Làm ảnh mẫu + ảnh cảnh như bình thường (`/fk-gen-refs`, `/fk-gen-images`).
+3. Gõ `/fk-gen-videos` hoặc `/fk-render-motion` — server **không** gọi Veo/Flow video. File nằm ở `output/<slug>/motion/`.
+4. (Tuỳ) `/fk-gen-narrator` rồi `/fk-concat-fit-narrator`.
+
+Bước này gần như chỉ tốn **ảnh** + CPU máy bạn. Không upscale, không chain video AI. Cảnh CONTINUATION vẫn crossfade lúc ghép.
 
 ---
 
