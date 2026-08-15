@@ -139,8 +139,7 @@ class TestHandleFailure:
         rid = req["id"]
         result = {"error": "timeout"}
 
-        with patch("agent.worker.processor.crud") as mock_crud, \
-             patch("agent.worker.processor._retry_state", {}):
+        with patch("agent.worker.processor.crud") as mock_crud:
             mock_crud.update_request = AsyncMock()
             mock_crud.update_scene = AsyncMock()
             await _handle_failure(rid, req, result)
@@ -158,8 +157,7 @@ class TestHandleFailure:
         rid = req["id"]
         result = {"error": "permanent failure"}
 
-        with patch("agent.worker.processor.crud") as mock_crud, \
-             patch("agent.worker.processor._retry_state", {}):
+        with patch("agent.worker.processor.crud") as mock_crud:
             mock_crud.update_request = AsyncMock()
             mock_crud.update_scene = AsyncMock()
             await _handle_failure(rid, req, result)
@@ -185,11 +183,26 @@ class TestHandleFailure:
             }
         }
 
-        with patch("agent.worker.processor.crud") as mock_crud, \
-             patch("agent.worker.processor._retry_state", {}):
+        with patch("agent.worker.processor.crud") as mock_crud:
             mock_crud.update_request = AsyncMock()
             mock_crud.update_scene = AsyncMock()
             await _handle_failure(rid, req, result)
 
         call_kwargs = mock_crud.update_request.call_args
         assert "caller does not have permission" in call_kwargs[1]["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_poll_timeout_resumes_without_retry_increment(self):
+        req = make_req(req_type="GENERATE_VIDEO", retry_count=2)
+        rid = req["id"]
+        result = {"error": "Workflow polling timeout after 1800s"}
+
+        with patch("agent.worker.processor.crud") as mock_crud:
+            mock_crud.update_request = AsyncMock()
+            await _handle_failure(rid, req, result)
+
+        mock_crud.update_request.assert_awaited_once()
+        kwargs = mock_crud.update_request.call_args[1]
+        assert kwargs["status"] == "PENDING"
+        assert "retry_count" not in kwargs
+        assert "polling timeout" in kwargs["error_message"].lower()

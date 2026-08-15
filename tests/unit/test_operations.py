@@ -6,7 +6,12 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from agent.sdk.services import operations as ops_module
-from agent.sdk.services.operations import OperationService, init_operations, get_operations
+from agent.sdk.services.operations import (
+    OperationService,
+    init_operations,
+    get_operations,
+    _operations_from_saved_handle,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -375,6 +380,80 @@ class TestMotionRenderMode:
         mock_kb.assert_called_once()
         assert result["data"]["operations"][0]["status"] == "MEDIA_GENERATION_STATUS_SUCCESSFUL"
         assert "motion-" in result["data"]["operations"][0]["operation"]["metadata"]["video"]["mediaId"]
+
+
+def test_operations_from_saved_handle_workflow_and_classic():
+    wf = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+    mid = "cccccccc-dddd-eeee-ffff-000000000001"
+    ops = _operations_from_saved_handle({"request_id": wf, "media_id": mid})
+    assert ops[0]["_workflow_mode"] is True
+    assert ops[0]["_primary_media_id"] == mid
+
+    classic = _operations_from_saved_handle({
+        "request_id": "models/foo/operations/abc",
+    })
+    assert "_workflow_mode" not in classic[0]
+    assert classic[0]["operation"]["name"].startswith("models/")
+
+    assert _operations_from_saved_handle({}) is None
+
+
+# ---------------------------------------------------------------------------
+# Test: resume existing video job (no resubmit)
+# ---------------------------------------------------------------------------
+
+class TestVideoResume:
+    @pytest.mark.asyncio
+    async def test_resume_workflow_does_not_resubmit(self, service, mock_client, base_scene):
+        wf_id = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+        media_id = "cccccccc-dddd-eeee-ffff-000000000001"
+        project = {"render_mode": "cinematic", "user_paygate_tier": "PAYGATE_TIER_TWO"}
+        req_row = {"request_id": wf_id, "media_id": media_id}
+
+        with patch("agent.sdk.services.operations.crud") as mock_crud, \
+             patch("agent.sdk.services.operations._build_video_prompt", new_callable=AsyncMock) as mock_prompt, \
+             patch("agent.sdk.services.operations._poll_operations", new_callable=AsyncMock) as mock_poll:
+            mock_crud.get_project = AsyncMock(return_value=project)
+            mock_crud.get_request = AsyncMock(return_value=req_row)
+            mock_prompt.return_value = "prompt"
+            mock_poll.return_value = {"data": {"operations": []}}
+
+            await service.generate_scene_video(base_scene, "VERTICAL", request_id="req-1")
+
+        mock_client.generate_video.assert_not_called()
+        mock_poll.assert_awaited_once()
+        resume_ops = mock_poll.call_args[0][1]
+        assert resume_ops[0]["_workflow_mode"] is True
+        assert resume_ops[0]["_primary_media_id"] == media_id
+
+    @pytest.mark.asyncio
+    async def test_persist_workflow_handle_on_submit(self, service, mock_client, base_scene):
+        wf_id = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+        media_id = "cccccccc-dddd-eeee-ffff-000000000001"
+        project = {"render_mode": "cinematic", "user_paygate_tier": "PAYGATE_TIER_TWO"}
+        mock_client.generate_video = AsyncMock(return_value={
+            "data": {
+                "workflows": [{"name": wf_id, "metadata": {"primaryMediaId": media_id}}],
+                "media": [{"name": media_id}],
+            }
+        })
+
+        with patch("agent.sdk.services.operations.crud") as mock_crud, \
+             patch("agent.sdk.services.operations._build_video_prompt", new_callable=AsyncMock) as mock_prompt, \
+             patch("agent.sdk.services.operations._poll_operations", new_callable=AsyncMock) as mock_poll:
+            mock_crud.get_project = AsyncMock(return_value=project)
+            mock_crud.get_request = AsyncMock(return_value={})
+            mock_crud.update_request = AsyncMock()
+            mock_prompt.return_value = "prompt"
+            mock_poll.return_value = {"data": {"operations": []}}
+
+            await service.generate_scene_video(base_scene, "VERTICAL", request_id="req-1")
+
+        mock_client.generate_video.assert_awaited_once()
+        mock_crud.update_request.assert_awaited()
+        kwargs = mock_crud.update_request.call_args[1]
+        assert kwargs["request_id"] == wf_id
+        assert kwargs["media_id"] == media_id
 
 
 # ---------------------------------------------------------------------------

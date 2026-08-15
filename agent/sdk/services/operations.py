@@ -138,6 +138,58 @@ def _extract_operations(result: dict) -> list[dict]:
     return synthesized
 
 
+def _looks_like_workflow_uuid(op_name: str | None) -> bool:
+    """Low Priority workflows store a bare UUID in request.request_id."""
+    return bool(op_name and len(op_name) == 36 and op_name.count("-") == 4)
+
+
+def _workflow_media_id(op: dict) -> str:
+    if op.get("_primary_media_id"):
+        return op["_primary_media_id"]
+    video = ((op.get("operation") or {}).get("metadata") or {}).get("video") or {}
+    return video.get("mediaId") or ""
+
+
+async def _persist_generation_handle(request_id: str, operations: list[dict]) -> None:
+    """Save Flow's operation/workflow handle so a later poll can resume."""
+    if not request_id or not operations:
+        return
+    op = operations[0]
+    kwargs: dict = {}
+    op_name = (op.get("operation") or {}).get("name", "")
+    if op_name:
+        kwargs["request_id"] = op_name
+    mid = _workflow_media_id(op)
+    if mid:
+        kwargs["media_id"] = mid
+    if kwargs:
+        await crud.update_request(request_id, **kwargs)
+
+
+def _operations_from_saved_handle(req_row: dict | None) -> list[dict] | None:
+    """Rebuild a pollable operations list from a previous submit. Never None if a handle exists."""
+    if not req_row:
+        return None
+    existing_op = req_row.get("request_id")
+    if not existing_op:
+        return None
+    if _looks_like_workflow_uuid(existing_op):
+        mid = req_row.get("media_id") or existing_op
+        return [{
+            "operation": {
+                "name": existing_op,
+                "metadata": {"video": {"mediaId": mid}},
+            },
+            "status": "MEDIA_GENERATION_STATUS_PENDING",
+            "_workflow_mode": True,
+            "_primary_media_id": mid,
+        }]
+    return [{
+        "operation": {"name": existing_op},
+        "status": "MEDIA_GENERATION_STATUS_PENDING",
+    }]
+
+
 async def _poll_workflows(
     client: FlowClient,
     operations: list[dict],
@@ -532,22 +584,15 @@ class OperationService:
             base_prompt = scene.get("video_prompt") or scene.get("prompt", "")
         prompt = await _build_video_prompt(base_prompt, scene, pid)
 
-        # Check if already submitted (op_name saved from previous attempt)
-        # OLD schema (Lite/Fast/Ultra): op_name is "models/.../operations/..." → re-poll via check_video_status
-        # NEW schema (Low Priority workflow): op_name is bare UUID → cannot recover (need primary_media_id
-        # which isn't persisted yet); fall through and resubmit (Low Priority is free, duplicate is OK)
-        existing_op = None
+        # Resume an in-flight job (poll window ended, worker restart, etc.).
+        # Never submit a second video when a handle already exists.
         if request_id:
             req_row = await crud.get_request(request_id)
-            existing_op = req_row.get("request_id") if req_row else None
-
-        # Heuristic: bare UUID = workflow name → skip shortcut. Slash/colon = old operation path.
-        looks_like_workflow_uuid = bool(existing_op and len(existing_op) == 36 and existing_op.count("-") == 4)
-        if existing_op and not looks_like_workflow_uuid:
-            logger.info("Video gen already submitted (op=%s), re-polling", existing_op[:30])
-            operations = [{"operation": {"name": existing_op}, "status": "MEDIA_GENERATION_STATUS_PENDING"}]
-            return await _poll_operations(self._client, operations)
-        # else: workflow UUID — fall through and resubmit fresh
+            resume_ops = _operations_from_saved_handle(req_row)
+            if resume_ops:
+                handle = resume_ops[0].get("operation", {}).get("name", "")
+                logger.info("Video gen already submitted (op=%s), re-polling", handle[:30])
+                return await _poll_operations(self._client, resume_ops)
 
         submit_result = await self._client.generate_video(
             start_image_media_id=image_media_id,
@@ -568,9 +613,8 @@ class OperationService:
             logger.error("[DEBUG] Video gen NO_OPERATIONS submit_result: %s", str(submit_result)[:2000])
             return {"error": "Video gen returned no operations"}
 
-        op_name = operations[0].get("operation", {}).get("name", "")
         if request_id:
-            await crud.update_request(request_id, request_id=op_name)
+            await _persist_generation_handle(request_id, operations)
 
         status = operations[0].get("status", "")
         if status == "MEDIA_GENERATION_STATUS_SUCCESSFUL":
@@ -654,16 +698,13 @@ class OperationService:
         if not ref_ids:
             return {"error": "No valid reference media_ids for r2v"}
 
-        # Check if already submitted (op_name saved from previous attempt)
-        existing_op = None
         if request_id:
             req_row = await crud.get_request(request_id)
-            existing_op = req_row.get("request_id") if req_row else None
-
-        if existing_op:
-            logger.info("R2V already submitted (op=%s), re-polling", existing_op[:30])
-            operations = [{"operation": {"name": existing_op}, "status": "MEDIA_GENERATION_STATUS_PENDING"}]
-            return await _poll_operations(self._client, operations)
+            resume_ops = _operations_from_saved_handle(req_row)
+            if resume_ops:
+                handle = resume_ops[0].get("operation", {}).get("name", "")
+                logger.info("R2V already submitted (op=%s), re-polling", handle[:30])
+                return await _poll_operations(self._client, resume_ops)
 
         submit_result = await self._client.generate_video_from_references(
             reference_media_ids=ref_ids,
@@ -681,9 +722,8 @@ class OperationService:
         if not operations:
             return {"error": "R2V returned no operations"}
 
-        op_name = operations[0].get("operation", {}).get("name", "")
         if request_id:
-            await crud.update_request(request_id, request_id=op_name)
+            await _persist_generation_handle(request_id, operations)
 
         status = operations[0].get("status", "")
         if status == "MEDIA_GENERATION_STATUS_SUCCESSFUL":
@@ -713,17 +753,13 @@ class OperationService:
 
         aspect = "VIDEO_ASPECT_RATIO_PORTRAIT" if orientation == "VERTICAL" else "VIDEO_ASPECT_RATIO_LANDSCAPE"
 
-        # Check if already submitted (op_name saved from previous attempt)
-        existing_op = None
         if request_id:
             req_row = await crud.get_request(request_id)
-            existing_op = req_row.get("request_id") if req_row else None
-
-        if existing_op:
-            # Already submitted — just re-poll
-            logger.info("Upscale already submitted (op=%s), re-polling", existing_op[:30])
-            operations = [{"operation": {"name": existing_op}, "status": "MEDIA_GENERATION_STATUS_PENDING"}]
-            return await _poll_operations(self._client, operations, timeout=300)
+            resume_ops = _operations_from_saved_handle(req_row)
+            if resume_ops:
+                handle = resume_ops[0].get("operation", {}).get("name", "")
+                logger.info("Upscale already submitted (op=%s), re-polling", handle[:30])
+                return await _poll_operations(self._client, resume_ops, timeout=300)
 
         submit_result = await self._client.upscale_video(
             media_id=video_media_id,
@@ -752,9 +788,8 @@ class OperationService:
             operations[0]["status"] = "MEDIA_GENERATION_STATUS_SUCCESSFUL"
             return {"data": {"operations": operations}}
 
-        op_name = operations[0].get("operation", {}).get("name", "")
         if request_id:
-            await crud.update_request(request_id, request_id=op_name)
+            await _persist_generation_handle(request_id, operations)
 
         status = operations[0].get("status", "")
         if status == "MEDIA_GENERATION_STATUS_SUCCESSFUL":

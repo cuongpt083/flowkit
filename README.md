@@ -628,7 +628,7 @@ Materials control both entity `image_prompt` style and scene `scene_prefix`. Exa
 | `WS_PORT` | `9222` | WebSocket server port |
 | `POLL_INTERVAL` | `5` | Worker poll interval (seconds) |
 | `MAX_RETRIES` | `5` | Max retries per request |
-| `VIDEO_POLL_TIMEOUT` | `420` | Video gen poll timeout (seconds) |
+| `VIDEO_POLL_TIMEOUT` | `1800` | One video poll window (seconds). Expiry resumes the same Flow job; it does not submit again. |
 | `API_COOLDOWN` | `10` | Seconds between API calls (anti-spam) |
 
 ## Architecture

@@ -456,6 +456,16 @@ async def _handle_failure(rid: str, req: dict, result: dict, retry_after: dict =
 
     error_lower = str(error_msg).lower()
 
+    # Poll window ended — the Flow job is still running. Park PENDING and
+    # resume the same handle; do not increment retry or submit again.
+    if "polling timeout" in error_lower:
+        await crud.update_request(rid, status="PENDING", error_message=str(error_msg))
+        logger.info(
+            "Request %s poll window ended, will resume existing job (no retry increment): %s",
+            rid[:8], error_msg,
+        )
+        return
+
     # WS transient errors (extension disconnect/reconnect): retry without incrementing count
     if "extension reconnected" in error_lower or "extension disconnected" in error_lower or "extension not connected" in error_lower:
         await crud.update_request(rid, status="PENDING", error_message=str(error_msg))
