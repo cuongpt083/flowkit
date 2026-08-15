@@ -49,6 +49,7 @@ python setup.py clean     # Remove generated configs
 | Claude Code | `.claude/commands/fk-<name>.md` (stubs) | `CLAUDE.md` (committed) | `/fk-<name>` |
 | Gemini CLI | `.gemini/commands/fk/<name>.toml` | `GEMINI.md` (generated) | `/fk-<name>` |
 | Codex CLI | — | `AGENTS.md` (generated) | Read `skills/fk-<name>.md` |
+| OpenCode | `.opencode/skills/fk-<name>/SKILL.md` + `.opencode/commands/fk-<name>.md` | `AGENTS.md` (generated) | `/fk-<name>` or skill tool |
 
 **Adding a new skill:** Create `skills/fk-<name>.md`, then run `python setup.py sync`.
 

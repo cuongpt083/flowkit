@@ -15,6 +15,8 @@ agent/active_project.json
 AGENTS.md
 GEMINI.md
 .fk-setup.json
+.opencode/skills/
+.opencode/commands/
 
 # design-sync (staged converter scripts, build output, machine state)
 .ds-sync/

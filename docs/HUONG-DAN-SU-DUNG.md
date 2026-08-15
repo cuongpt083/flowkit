@@ -5,7 +5,7 @@ Dành cho người muốn làm video bằng AI mà **không cần biết lập t
 Tài liệu này giải thích Flow Kit bằng ngôn ngữ đời thường: cài lần đầu, mỗi ngày mở máy thế nào, nói chuyện với trợ lý AI ra sao, và khi nào nên dừng lại nhờ người khác.
 
 > Tài liệu kỹ thuật cho lập trình viên nằm ở [README.md](../README.md).  
-> Trợ lý AI (Claude Code) đọc [CLAUDE.md](../CLAUDE.md).  
+> Trợ lý AI đọc [CLAUDE.md](../CLAUDE.md) (Claude Code) hoặc skill trong `.opencode/` (OpenCode).  
 > Bạn chỉ cần đọc **file này**.
 
 ---
@@ -26,6 +26,7 @@ Tài liệu này giải thích Flow Kit bằng ngôn ngữ đời thường: cà
 12. [Thuật ngữ](#12-thuật-ngữ)
 13. [Không mua Claude: DeepSeek Flash + Qwen 3.7 Plus](#13-không-mua-claude-deepseek-flash--qwen-37-plus)
 14. [Video kiểu Vox / motion graphic (rẻ, phù hợp UAT)](#14-video-kiểu-vox--motion-graphic-rẻ-phù-hợp-uat)
+15. [Dùng OpenCode](#15-dùng-opencode)
 
 ---
 
@@ -53,7 +54,7 @@ Ví dụ kết quả: một phim ngắn 24 giây gồm 3 cảnh — mèo vũ tr�
 
 <p align="center"><sub>Cùng một nhân vật bác sĩ qua 4 cảnh khác nhau — nhờ ảnh mẫu.</sub></p>
 
-**Flow Kit không phải app bấm nút “Tạo video” một phát xong.** Nó là bộ máy chạy trên máy bạn, còn “người điều khiển” thường là **Claude Code** (một trợ lý AI trong cửa sổ chat). Bạn nói chuyện; trợ lý gõ lệnh giúp.
+**Flow Kit không phải app bấm nút “Tạo video” một phát xong.** Nó là bộ máy chạy trên máy bạn, còn “người điều khiển” là một trợ lý AI trong cửa sổ chat — thường là **Claude Code** hoặc **OpenCode**. Bạn nói chuyện; trợ lý gõ lệnh giúp.
 
 ---
 
@@ -66,7 +67,7 @@ Ví dụ kết quả: một phim ngắn 24 giây gồm 3 cảnh — mèo vũ tr�
 | Máy tính | Chạy phần mềm | macOS hoặc Windows. Windows nên dùng **WSL** (xem bước 4) |
 | [Google Chrome](https://www.google.com/chrome/) | Cài extension của Flow Kit | Extension **không** có trên Chrome Web Store — phải nạp tay |
 | Tài khoản Google đã dùng được [Google Flow](https://labs.google/fx/tools/flow) | Tạo ảnh và video | Cần quyền / credit trên Google Flow. Không có tài khoản Flow thì hệ thống không tạo được media |
-| [Claude Code](https://code.claude.com/docs/en/overview) | Trợ lý AI điều khiển Flow Kit | Phần mềm miễn phí. **Không bắt buộc** mua gói Claude.ai — có thể trỏ sang model khác (xem [phần 13](#13-không-mua-claude-deepseek-flash--qwen-37-plus)) |
+| Trợ lý AI: [Claude Code](https://code.claude.com/docs/en/overview) **hoặc** [OpenCode](https://opencode.ai/) | Điều khiển Flow Kit bằng chat + lệnh `/fk-…` | Chọn **một**. Claude: [phần 4.6](#46-cài-claude-code-nếu-chưa-có) và [phần 13](#13-không-mua-claude-deepseek-flash--qwen-37-plus). OpenCode: [phần 15](#15-dùng-opencode) |
 | Python 3.10+ và ffmpeg | Máy “bếp” phía sau | Script cài đặt sẽ kiểm tra và hướng dẫn nếu thiếu |
 
 ### Nên có
@@ -88,9 +89,9 @@ Ví dụ kết quả: một phim ngắn 24 giây gồm 3 cảnh — mèo vũ tr�
 Hãy nghĩ Flow Kit như một **xưởng phim nhỏ trên máy bạn**.
 
 ```
-Bạn nói chuyện với Claude Code
+Bạn nói chuyện với Claude Code hoặc OpenCode
         ↓
-Claude Code ra lệnh cho “máy chủ cục bộ” (cổng 8100)
+Trợ lý AI ra lệnh cho “máy chủ cục bộ” (cổng 8100)
         ↓
 Máy chủ nhờ extension Chrome nói chuyện với Google Flow
         ↓
@@ -202,6 +203,8 @@ claude
 Lần đầu có thể hỏi đăng nhập. Xong rồi bạn có cửa sổ chat — đây là nơi bạn làm việc hàng ngày.
 
 Nếu **không mua** gói Claude.ai, đừng đăng nhập subscription. Làm theo [phần 13](#13-không-mua-claude-deepseek-flash--qwen-37-plus) để Claude Code dùng **DeepSeek V4 Flash** + **Qwen 3.7 Plus**.
+
+Muốn dùng **OpenCode** thay Claude Code: bỏ qua bước này và làm [phần 15](#15-dùng-opencode). Chrome + agent Python vẫn bắt buộc như cũ.
 
 ### 4.7. Kiểm tra “cả nhà đã vào chỗ”
 
@@ -346,7 +349,7 @@ Claude sẽ tự làm các bước còn thiếu. Lần đầu nên làm từng b
 
 ## 7. Các lệnh hay dùng
 
-Trong Claude Code, gõ dấu `/` rồi chọn lệnh. Cũng có thể nói tiếng Việt tương đương.
+Trong Claude Code hoặc OpenCode, gõ dấu `/` rồi chọn lệnh. Cũng có thể nói tiếng Việt tương đương.
 
 ### Làm phim (thứ tự này)
 
@@ -502,7 +505,8 @@ Khi không chắc, trong Claude gõ **`/fk-doctor`** và dán nguyên câu lỗi
 | **material** | Phong cách hình (Pixar, anime, hiện thực…) |
 | **Agent** | Phần mềm Python chạy nền (`python -m agent.main`) |
 | **Extension** | Mảnh gắn vào Chrome, nói chuyện với Google Flow |
-| **Claude Code** | Cửa sổ chat điều khiển Flow Kit |
+| **Claude Code** | Cửa sổ chat điều khiển Flow Kit (một trong các lựa chọn) |
+| **OpenCode** | Agent mã nguồn mở — cũng điều khiển được Flow Kit (xem [phần 15](#15-dùng-opencode)) |
 | **Skill / lệnh `/fk-…`** | Công thức có sẵn (“tạo ảnh mẫu”, “ghép phim”…) |
 | **Pipeline** | Cả dây chuyền từ ý tưởng tới file cuối |
 | **ROOT / CONTINUATION** | Cảnh mở đầu chuỗi / cảnh nối tiếp cùng không gian |
@@ -625,12 +629,52 @@ Bước này gần như chỉ tốn **ảnh** + CPU máy bạn. Không upscale, 
 
 ---
 
+## 15. Dùng OpenCode
+
+OpenCode là trợ lý AI mã nguồn mở (cửa sổ chat trong terminal hoặc IDE). **Máy bếp Flow Kit không đổi**: Chrome + extension + `python -m agent.main` vẫn phải mở như [phần 5](#5-mỗi-ngày-mở-máy-làm-việc). Chỉ đổi cửa sổ chat.
+
+### Lần đầu
+
+1. Cài [OpenCode](https://opencode.ai/) và chọn model (Claude, GPT, Gemini, hoặc model local — tuỳ bạn).
+2. Mở **đúng thư mục Flow Kit** (thư mục có file `setup.py`).
+3. Trong Terminal (đứng trong thư mục đó) gõ:
+
+```
+python setup.py --tool opencode
+```
+
+Lệnh này tạo các “công thức” `/fk-…` và skill cho OpenCode. Làm **một lần** (hoặc mỗi khi Flow Kit thêm lệnh mới).
+
+4. Trong thư mục Flow Kit gõ `opencode` (hoặc mở project trong app OpenCode), rồi bắt đầu chat mới.
+
+### Làm việc hàng ngày
+
+Giống Claude Code: gõ `/` rồi chọn `/fk-create-project`, `/fk-gen-refs`, … hoặc nói tiếng Việt.
+
+OpenCode còn **tự nạp skill** khi bạn mô tả việc (tool `skill`). Nếu nó làm lệch pipeline, nhắc rõ: “dùng skill fk-gen-refs”.
+
+Muốn video kiểu Vox: [phần 14](#14-video-kiểu-vox--motion-graphic-rẻ-phù-hợp-uat) — `/fk-render-motion` cũng có trên OpenCode sau khi chạy `setup.py`.
+
+### Việc không cần làm
+
+- Không cần Claude Code nếu bạn chỉ dùng OpenCode.
+- Không cần [phần 13](#13-không-mua-claude-deepseek-flash--qwen-37-plus) trừ khi bạn vẫn mở Claude Code.
+- Không đổi Google Flow, extension, hay cổng 8100.
+
+### Nếu gõ `/` không thấy lệnh `fk-`
+
+- Đã chạy `python setup.py --tool opencode` trong **đúng** thư mục Flow Kit chưa?
+- Đã mở đúng thư mục đó trong OpenCode chưa?
+- Thử chat mới, hoặc nói: “chạy skill fk-status”.
+
+---
+
 ## Tiếp theo
 
 1. Làm xong [phần 4](#4-cài-đặt-lần-đầu) và [phần 5](#5-mỗi-ngày-mở-máy-làm-việc) đến khi `health` báo `extension_connected: true`
-2. Không mua Claude.ai → cấu hình hai cửa sổ theo [phần 13](#13-không-mua-claude-deepseek-flash--qwen-37-plus)
-3. Trong cửa sổ **Plus**, mô tả một chuyện **3 cảnh**, phong cách rõ
-4. Xem ảnh mẫu trước khi cho phép làm video (gen bằng cửa sổ **Flash**)
-5. Khi đỏ đèn: `/fk-doctor` trên cửa sổ **Plus**, đừng đoán
+2. Chọn cửa sổ chat: Claude Code ([phần 4.6](#46-cài-claude-code-nếu-chưa-có), không mua gói thì [phần 13](#13-không-mua-claude-deepseek-flash--qwen-37-plus)) **hoặc** OpenCode ([phần 15](#15-dùng-opencode))
+3. Mô tả một chuyện **3 cảnh**, phong cách rõ
+4. Xem ảnh mẫu trước khi cho phép làm video
+5. Khi đỏ đèn: `/fk-doctor`, đừng đoán
 
 Chúc bạn ra clip đầu tiên trơn tru.
