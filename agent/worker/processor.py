@@ -14,11 +14,36 @@ import aiohttp
 from agent.db import crud
 from agent.services.flow_client import get_flow_client
 from agent.services.event_bus import event_bus
-from agent.config import POLL_INTERVAL, MAX_RETRIES, API_COOLDOWN, MAX_CONCURRENT_REQUESTS
+from agent.config import (
+    POLL_INTERVAL, MAX_RETRIES, API_COOLDOWN, MAX_CONCURRENT_REQUESTS,
+    UNUSUAL_ACTIVITY_HOLD,
+)
 from agent.worker._parsing import _is_error
 from agent.sdk.services.result_handler import parse_result, apply_scene_result, apply_character_result
 
 logger = logging.getLogger(__name__)
+
+# Unix time until which new Flow submits are paused (unusual-activity / traffic).
+_submit_hold_until = 0.0
+
+
+def _error_looks_like_unusual_activity(message: str) -> bool:
+    text = (message or "").lower()
+    return any(token in text for token in (
+        "unusual_activity",
+        "unusual activity",
+        "too_much_traffic",
+        "too much traffic",
+    ))
+
+
+def _can_run_during_submit_hold(req: dict) -> bool:
+    """Only resume already-submitted Flow jobs; do not start new generates."""
+    if req.get("type") not in (
+        "GENERATE_VIDEO", "REGENERATE_VIDEO", "GENERATE_VIDEO_REFS", "UPSCALE_VIDEO",
+    ):
+        return False
+    return bool(req.get("request_id") or req.get("media_id"))
 
 _API_CALL_TYPES = {"GENERATE_IMAGE", "REGENERATE_IMAGE", "EDIT_IMAGE",
                    "GENERATE_VIDEO", "REGENERATE_VIDEO", "GENERATE_VIDEO_REFS", "UPSCALE_VIDEO",
@@ -115,6 +140,16 @@ class WorkerController:
                 if not client.connected:
                     pending = [r for r in pending if await _request_is_motion_video(r)]
                     if not pending:
+                        await asyncio.sleep(POLL_INTERVAL)
+                        continue
+                if now < _submit_hold_until:
+                    hold_left = int(_submit_hold_until - now)
+                    pending = [r for r in pending if _can_run_during_submit_hold(r)]
+                    if not pending:
+                        logger.warning(
+                            "Holding new Flow submits for %ds after unusual activity",
+                            hold_left,
+                        )
                         await asyncio.sleep(POLL_INTERVAL)
                         continue
 
@@ -456,6 +491,23 @@ async def _handle_failure(rid: str, req: dict, result: dict, retry_after: dict =
 
     error_lower = str(error_msg).lower()
 
+    # Google flagged the session (too many submits). Retrying immediately
+    # makes the block worse. Park the job and pause new submits.
+    if _error_looks_like_unusual_activity(error_lower):
+        global _submit_hold_until
+        hold_s = max(UNUSUAL_ACTIVITY_HOLD, 60)
+        hold_until = time.time() + hold_s
+        _submit_hold_until = max(_submit_hold_until, hold_until)
+        if retry_after is not None:
+            retry_after[rid] = hold_until
+        await crud.update_request(rid, status="PENDING", error_message=str(error_msg))
+        logger.warning(
+            "Request %s unusual activity / too much traffic — parked PENDING, "
+            "holding new submits for %ds (no retry increment): %s",
+            rid[:8], hold_s, error_msg,
+        )
+        return
+
     # Poll window ended — the Flow job is still running. Park PENDING and
     # resume the same handle; do not increment retry or submit again.
     if "polling timeout" in error_lower:
@@ -472,7 +524,8 @@ async def _handle_failure(rid: str, req: dict, result: dict, retry_after: dict =
         logger.info("Request %s transient WS error, will retry (no retry increment): %s", rid[:8], error_msg)
         return
 
-    # reCAPTCHA errors: retry up to 10 times — deferred dict in main loop handles delay
+    # Token / tab captcha only (NO_FLOW_TAB, grecaptcha). Unusual-activity
+    # is handled above and must not burn these 10 retries.
     if "captcha" in error_lower or "recaptcha" in error_lower:
         retry = req.get("retry_count", 0) + 1
         if retry < 10:

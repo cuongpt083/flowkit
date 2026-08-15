@@ -29,6 +29,8 @@ MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "5"))
 # One poll window. Expiry resumes the same Flow job; it does not submit again.
 VIDEO_POLL_TIMEOUT = int(os.environ.get("VIDEO_POLL_TIMEOUT", "1800"))
 API_COOLDOWN = int(os.environ.get("API_COOLDOWN", "10"))  # seconds between API calls (anti-spam)
+# After PUBLIC_ERROR_UNUSUAL_ACTIVITY / TOO_MUCH_TRAFFIC, pause new submits.
+UNUSUAL_ACTIVITY_HOLD = int(os.environ.get("UNUSUAL_ACTIVITY_HOLD", "900"))
 MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "5"))  # Google Flow max parallel requests
 STALE_PROCESSING_TIMEOUT = int(os.environ.get("STALE_PROCESSING_TIMEOUT", "600"))  # 10 min
 

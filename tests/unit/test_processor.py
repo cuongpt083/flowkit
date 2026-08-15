@@ -1,9 +1,13 @@
 """Unit tests for agent/worker/processor.py — heavy mocking of crud, flow_client, operations."""
 
+import time
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from agent.worker.processor import (
+    _can_run_during_submit_hold,
+    _error_looks_like_unusual_activity,
     _is_already_completed,
     _mark_scene_failed,
     _handle_failure,
@@ -206,3 +210,40 @@ class TestHandleFailure:
         assert kwargs["status"] == "PENDING"
         assert "retry_count" not in kwargs
         assert "polling timeout" in kwargs["error_message"].lower()
+
+    @pytest.mark.asyncio
+    async def test_unusual_activity_parks_without_retry_increment(self):
+        req = make_req(req_type="GENERATE_VIDEO", retry_count=9)
+        rid = req["id"]
+        result = {
+            "status": 429,
+            "data": {
+                "error": {
+                    "message": "reCAPTCHA evaluation failed",
+                    "details": [{"reason": "PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC"}],
+                }
+            },
+        }
+        retry_after = {}
+        with patch("agent.worker.processor.crud") as mock_crud, \
+             patch("agent.worker.processor._submit_hold_until", 0):
+            mock_crud.update_request = AsyncMock()
+            await _handle_failure(rid, req, result, retry_after)
+
+        kwargs = mock_crud.update_request.call_args[1]
+        assert kwargs["status"] == "PENDING"
+        assert "retry_count" not in kwargs
+        assert "TOO_MUCH_TRAFFIC" in kwargs["error_message"]
+        assert rid in retry_after
+        assert retry_after[rid] > time.time()
+
+    def test_unusual_activity_matcher_and_hold_gate(self):
+        assert _error_looks_like_unusual_activity(
+            "reCAPTCHA evaluation failed [PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC]"
+        )
+        assert not _error_looks_like_unusual_activity("CAPTCHA_FAILED: NO_FLOW_TAB")
+        video = make_req(req_type="GENERATE_VIDEO")
+        assert _can_run_during_submit_hold(video) is False
+        video["request_id"] = "wf-1"
+        assert _can_run_during_submit_hold(video) is True
+        assert _can_run_during_submit_hold(make_req(req_type="GENERATE_IMAGE")) is False

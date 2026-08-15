@@ -79,7 +79,7 @@ Match against taxonomy — even partial matches (`"not found"`, `"captcha"`, `"q
 | `Requested entity was not found` | Uploaded `media_id` expired (~1h TTL on uploads) | `_recover_entity_not_found` re-uploads from `image_url`, re-queues PENDING | If auto-recovery fails: manually `POST /api/upload-image`, patch `media_id` |
 | `Internal error encountered` | Flow backend transient 500 | Exponential backoff: `2^retry * 10s`, capped 300s | None — wait, or retry manually after a minute |
 | `reCAPTCHA failed` / (contains `captcha`) | Extension couldn't solve reCAPTCHA | Retry ≤10× without consuming `retry_count` (processor.py:454-464) | Ensure a Google Flow tab is open and focused; reload extension |
-| `PUBLIC_ERROR_UNUSUAL_ACTIVITY` (403, message `reCAPTCHA evaluation failed`) | Google flagged the session as bot-like — usually triggered by rapid bursts of submits (e.g. many GENERATE_VIDEO in <1 minute), shared/VPN IP, or stale auth cookies | NOT auto-handled — Google blocks even fresh requests until the trust signal recovers | (1) **Stop the worker / pipeline** so submits pause. (2) Open Chrome → `chrome://settings/cookies` (or the extension's Chrome profile) → search `google.com` and `labs.google` → **remove all cookies for both**. (3) Reload `https://labs.google/fx/tools/flow` and sign back in (re-solve any reCAPTCHA puzzles manually). (4) Slow down submission cadence (≥1s gap between submits, ≤5 concurrent). If still blocked, switch to a different network or wait 1–6 h |
+| `PUBLIC_ERROR_UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC` (429/403, message `reCAPTCHA evaluation failed`) | Google flagged the session as bot-like — usually triggered by rapid bursts of submits (e.g. many GENERATE_VIDEO in <1 minute), shared/VPN IP, or stale auth cookies | Park PENDING **without** incrementing `retry_count`; pause **new** submits for `UNUSUAL_ACTIVITY_HOLD` (default 900s). Already-submitted video jobs may still be polled | If still 429 after the hold: (1) keep the worker running but do not force new batches. (2) Open Chrome → `chrome://settings/cookies` → remove cookies for `google.com` and `labs.google`. (3) Reload `https://labs.google/fx/tools/flow` and sign back in (solve any captcha manually). (4) Then resume; keep ≤5 concurrent and ≥1s gap. Switch network or wait 1–6 h if still blocked |
 
 ### B. HTTP status codes
 
@@ -158,8 +158,9 @@ Decision order — stop at first match:
 
 1. **`"not found"` in message** → `_recover_entity_not_found()` re-uploads media, marks PENDING.
 2. **`reconnected` / `disconnected` / `switched`** → PENDING, keep `retry_count`.
-3. **`captcha` / `recaptcha`** → PENDING if retry_count < 10; else FAILED.
-4. **Default** → increment `retry_count`; if < `MAX_RETRIES` (5), schedule retry at `now + min(2^retry * 10, 300)`s. Else FAILED.
+3. **`unusual_activity` / `too_much_traffic`** → PENDING, no `retry_count` bump, hold new submits `UNUSUAL_ACTIVITY_HOLD`s.
+4. **`captcha` / `recaptcha`** (token/tab only) → PENDING if retry_count < 10; else FAILED.
+5. **Default** → increment `retry_count`; if < `MAX_RETRIES` (5), schedule retry at `now + min(2^retry * 10, 300)`s. Else FAILED.
 
 ## Output format
 
