@@ -151,3 +151,61 @@ def add_music(video_path: str, music_path: str, output_path: str,
         logger.error("Add music failed: %s", result.stderr[-200:])
         return False
     return True
+
+
+# Ken Burns / Vox-style still → clip. Preset strings are fixed (no user input).
+_MOTION_PRESETS = (
+    "z='min(zoom+0.0012,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'",
+    "z='if(eq(on,1),1.12,max(zoom-0.0012,1.0))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'",
+    "z='1.08':x='(iw-iw/zoom)*on/{frames}':y='ih/2-(ih/zoom/2)'",
+    "z='1.08':x='(iw-iw/zoom)*(1-on/{frames})':y='ih/2-(ih/zoom/2)'",
+)
+
+
+def image_to_motion_clip(
+    image_path: str,
+    output_path: str,
+    *,
+    duration: float = 8.0,
+    orientation: str = "HORIZONTAL",
+    preset_index: int = 0,
+    fps: int = 24,
+) -> bool:
+    """Turn a still image into a short Ken Burns clip with silent stereo audio."""
+    src = Path(image_path)
+    dest = Path(output_path)
+    if not src.exists():
+        logger.error("image_to_motion_clip: image not found: %s", image_path)
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    duration = max(2.0, min(float(duration), 20.0))
+    fps = 24 if fps not in (24, 25, 30) else fps
+    frames = max(int(duration * fps), fps * 2)
+    if orientation.upper() == "VERTICAL":
+        width, height = 1080, 1920
+    else:
+        width, height = 1920, 1080
+    preset = _MOTION_PRESETS[preset_index % len(_MOTION_PRESETS)]
+    zoom = preset.replace("{frames}", str(max(frames - 1, 1)))
+    vf = (
+        f"scale=8000:-1,zoompan={zoom}:d={frames}:s={width}x{height}:fps={fps},"
+        f"format=yuv420p"
+    )
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", str(src),
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-vf", vf,
+        "-t", f"{duration:.2f}",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2",
+        "-shortest",
+        "-movflags", "+faststart",
+        str(dest),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    if result.returncode != 0:
+        logger.error("Ken Burns render failed: %s", result.stderr[-400:])
+        return False
+    return dest.exists()

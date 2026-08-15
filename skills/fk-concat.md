@@ -19,9 +19,10 @@ Sort scenes by `display_order`.
 ## Step 2: Determine video source for each scene
 
 Priority order for each scene:
-1. **Local 4K file:** `${OUTDIR}/4k/{scene_id}.mp4` (saved from rawBytes — best quality)
-2. **Upscale URL:** `horizontal_upscale_url` or `vertical_upscale_url` (4K signed URL — may be expired)
-3. **Video URL:** `horizontal_video_url` or `vertical_video_url` (standard quality)
+1. **Local 4K file:** `${OUTDIR}/4k/scene_${IDX3}_${scene_id}.mp4` then `${OUTDIR}/4k/{scene_id}.mp4`
+2. **Motion clip:** `${OUTDIR}/motion/scene_${IDX3}_${scene_id}.mp4` (`render_mode=motion`)
+3. **Upscale URL:** `horizontal_upscale_url` or `vertical_upscale_url` (4K signed URL — may be expired)
+4. **Video URL:** `horizontal_video_url` or `vertical_video_url` (standard quality; may be `file://` for motion)
 
 Check orientation from project or first scene. Use matching prefix (`horizontal_` or `vertical_`).
 

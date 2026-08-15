@@ -41,7 +41,7 @@ import aiohttp
 
 from agent.db import crud
 from agent.config import VIDEO_POLL_INTERVAL, VIDEO_POLL_TIMEOUT
-from agent.utils.paths import scene_4k_path
+from agent.utils.paths import project_dir, scene_4k_path, scene_filename
 from agent.utils.slugify import slugify
 from agent.worker._parsing import (
     _is_error,
@@ -295,6 +295,96 @@ async def _poll_operations(
     return {"error": f"Polling timeout after {timeout}s"}
 
 
+def _still_source(scene: dict, prefix: str) -> str:
+    url = scene.get(f"{prefix}_image_url") or ""
+    mid = scene.get(f"{prefix}_image_media_id") or ""
+    for candidate in (url, mid):
+        if isinstance(candidate, str) and (
+            candidate.startswith("http://")
+            or candidate.startswith("https://")
+            or candidate.startswith("file://")
+        ):
+            return candidate
+    return url or ""
+
+
+async def _download_still(url: str, dest) -> bool:
+    from pathlib import Path
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if url.startswith("file://"):
+        src = Path(url[7:])
+        if not src.exists():
+            return False
+        dest.write_bytes(src.read_bytes())
+        return True
+    timeout = aiohttp.ClientTimeout(total=90)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(url) as resp:
+            if resp.status != 200:
+                logger.error("Download still failed HTTP %s for %s", resp.status, url[:80])
+                return False
+            dest.write_bytes(await resp.read())
+    return dest.exists()
+
+
+async def _render_motion_clip(scene: dict, orientation: str, project: dict | None) -> dict:
+    """Vox / Ken Burns clip from the scene still — no paid video API."""
+    from shutil import copy2
+
+    from agent.services.post_process import image_to_motion_clip
+
+    prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
+    source = _still_source(scene, prefix)
+    if not source:
+        return {"error": f"No {prefix} image URL for motion render — generate a scene image first"}
+
+    slug = slugify((project or {}).get("name") or scene.get("_project_id") or "project")
+    order = int(scene.get("display_order") or 0)
+    sid = scene.get("id") or "scene"
+    stills = project_dir(slug) / "stills" / scene_filename(order, sid, ext="jpg")
+    out = project_dir(slug) / "motion" / scene_filename(order, sid)
+
+    if not await _download_still(source, stills):
+        return {"error": f"Failed to download still for motion render: {source[:120]}"}
+
+    duration = scene.get("duration")
+    try:
+        duration = float(duration) if duration else 8.0
+    except (TypeError, ValueError):
+        duration = 8.0
+
+    ok = image_to_motion_clip(
+        str(stills),
+        str(out),
+        duration=duration,
+        orientation=orientation,
+        preset_index=order,
+    )
+    if not ok:
+        return {"error": "Ken Burns ffmpeg render failed"}
+
+    if out.exists():
+        canonical = project_dir(slug) / "4k" / scene_filename(order, sid)
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+        copy2(out, canonical)
+
+    abs_url = f"file://{out.resolve()}"
+    job = f"motion-{sid}-{orientation.lower()}"
+    logger.info("Motion clip ready: %s (%.1fs)", out, duration)
+    return {
+        "data": {
+            "operations": [{
+                "status": "MEDIA_GENERATION_STATUS_SUCCESSFUL",
+                "operation": {
+                    "name": job,
+                    "metadata": {"video": {"mediaId": job, "fifeUrl": abs_url}},
+                },
+            }]
+        }
+    }
+
+
 class OperationService:
     """Executes media generation operations using FlowClient + Repository.
 
@@ -423,11 +513,13 @@ class OperationService:
                                    request_id: str = "") -> dict:
         """Generate video from a scene image (i2v). Submits + polls."""
         prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
+        project = await crud.get_project(scene.get("_project_id", "0"))
+        if (project or {}).get("render_mode") == "motion":
+            return await _render_motion_clip(scene, orientation, project)
+
         image_media_id = scene.get(f"{prefix}_image_media_id")
         if not image_media_id:
             return {"error": f"No {prefix} image media_id for scene"}
-
-        project = await crud.get_project(scene.get("_project_id", "0"))
         aspect = "VIDEO_ASPECT_RATIO_PORTRAIT" if orientation == "VERTICAL" else "VIDEO_ASPECT_RATIO_LANDSCAPE"
         tier = project.get("user_paygate_tier", "PAYGATE_TIER_TWO") if project else "PAYGATE_TIER_TWO"
         pid = scene.get("_project_id", "0")
@@ -500,6 +592,8 @@ class OperationService:
         the scene's end_scene image.
         """
         project = await crud.get_project(scene.get("_project_id", "0"))
+        if (project or {}).get("render_mode") == "motion":
+            return {"error": "UNSUPPORTED_ON_RENDER_MODE: motion uses Ken Burns stills, not r2v"}
         aspect = "VIDEO_ASPECT_RATIO_PORTRAIT" if orientation == "VERTICAL" else "VIDEO_ASPECT_RATIO_LANDSCAPE"
         tier = project.get("user_paygate_tier", "PAYGATE_TIER_TWO") if project else "PAYGATE_TIER_TWO"
         pid = scene.get("_project_id", "0")
@@ -608,6 +702,10 @@ class OperationService:
         If a previous attempt already submitted (op_name saved in DB), skip
         submit and just re-poll — avoids duplicate API calls on retry.
         """
+        project = await crud.get_project(scene.get("_project_id", "0"))
+        if (project or {}).get("render_mode") == "motion":
+            return {"error": "UNSUPPORTED_ON_RENDER_MODE: motion clips are not upscaled"}
+
         prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
         video_media_id = scene.get(f"{prefix}_video_media_id")
         if not video_media_id:

@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from agent.models.enums import ProjectStatus, PaygateTier, EntityType
+
+_RENDER_MODES = frozenset({"cinematic", "motion"})
 
 
 class CharacterInput(BaseModel):
@@ -22,6 +24,7 @@ class ProjectCreate(BaseModel):
     style: Optional[str] = None  # deprecated: use material instead; "3D"→"3d_pixar", "photorealistic"→"realistic"
     allow_music: bool = False  # when True, skip "no background music" suffix in video prompts
     allow_voice: bool = False  # when True, keep character dialogue in video audio (suppress only music/narration)
+    render_mode: str = "cinematic"  # cinematic (AI video) | motion (Ken Burns / Vox-style)
     characters: Optional[list[CharacterInput]] = None
 
     @model_validator(mode="before")
@@ -34,6 +37,14 @@ class ProjectCreate(BaseModel):
                 compat_map = {"3D": "3d_pixar", "3d": "3d_pixar", "photorealistic": "realistic"}
                 data["material"] = compat_map.get(style, style.lower().replace(" ", "_"))
         return data
+
+    @field_validator("render_mode")
+    @classmethod
+    def validate_render_mode(cls, v: str) -> str:
+        key = (v or "cinematic").strip().lower()
+        if key not in _RENDER_MODES:
+            raise ValueError(f"render_mode must be one of {sorted(_RENDER_MODES)}")
+        return key
 
 
 class ProjectUpdate(BaseModel):
@@ -49,6 +60,17 @@ class ProjectUpdate(BaseModel):
     material: Optional[str] = None
     allow_music: Optional[bool] = None
     allow_voice: Optional[bool] = None
+    render_mode: Optional[str] = None
+
+    @field_validator("render_mode")
+    @classmethod
+    def validate_render_mode_update(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        key = v.strip().lower()
+        if key not in _RENDER_MODES:
+            raise ValueError(f"render_mode must be one of {sorted(_RENDER_MODES)}")
+        return key
 
 
 class Project(BaseModel):
@@ -63,6 +85,7 @@ class Project(BaseModel):
     material: Optional[str] = None
     allow_music: bool = False
     allow_voice: bool = False
+    render_mode: str = "cinematic"
     narrator_voice: Optional[str] = None
     narrator_ref_audio: Optional[str] = None
     created_at: Optional[str] = None

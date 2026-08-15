@@ -6,6 +6,7 @@ Create a new Google Flow video project. Ask the user for:
 4. **Locations** — name + visual description of key places
 5. **Visual assets** — name + visual description of key props/objects
 6. **Number of scenes** and **orientation** (VERTICAL or HORIZONTAL)
+7. **Render mode** — `cinematic` (default, AI video per scene) or `motion` (Vox-style: Ken Burns from stills, no paid video API). Use `motion` for cheap UAT / documentary slideshow.
 
 Then execute:
 
@@ -109,7 +110,7 @@ Camera stays behind. Viewers see the leader's power through body language, not f
 ```bash
 curl -X POST http://127.0.0.1:8100/api/projects \
   -H "Content-Type: application/json" \
-  -d '{"name": "...", "description": "...", "story": "...", "material": "3d_pixar", "characters": [
+  -d '{"name": "...", "description": "...", "story": "...", "material": "3d_pixar", "render_mode": "cinematic", "characters": [
     {"name": "...", "entity_type": "character", "description": "...", "voice_description": "Deep calm voice, speaks slowly with confidence"},
     {"name": "...", "entity_type": "location", "description": "..."},
     {"name": "...", "entity_type": "visual_asset", "description": "..."}

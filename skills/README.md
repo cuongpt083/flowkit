@@ -50,6 +50,7 @@ python setup.py clean     # Remove generated configs
 | Gemini CLI | `.gemini/commands/fk/<name>.toml` | `GEMINI.md` (generated) | `/fk-<name>` |
 | Codex CLI | — | `AGENTS.md` (generated) | Read `skills/fk-<name>.md` |
 | Antigravity 2.0 | `.agents/skills/fk-<name>/SKILL.md` + `.agents/workflows/fk-<name>.md` | `.agents/rules/flowkit.md` + `AGENTS.md` | `/fk-<name>` or auto-activate |
+| OpenCode | `.opencode/skills/fk-<name>/SKILL.md` + `.opencode/commands/fk-<name>.md` | `AGENTS.md` (generated) | `/fk-<name>` or skill tool |
 
 **Adding a new skill:** Create `skills/fk-<name>.md`, then run `python setup.py sync`.
 

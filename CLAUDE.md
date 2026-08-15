@@ -25,6 +25,7 @@ curl -s http://127.0.0.1:8100/health
 | `/fk-gen-refs` | Generate reference images for entities |
 | `/fk-gen-images` | Generate scene images |
 | `/fk-gen-videos` | Generate scene videos |
+| `/fk-render-motion` | Vox-style Ken Burns clips from stills (no AI video) |
 | `/fk-gen-chain-videos` | Videos with scene chaining transitions |
 | `/fk-review-video` | Review video quality before upscale |
 | `/fk-review-board` | Visual scene review board for feedback |

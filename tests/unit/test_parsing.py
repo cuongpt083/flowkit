@@ -121,6 +121,26 @@ class TestExtractMediaId:
     def test_unknown_req_type_returns_none(self, sample_image_success):
         assert _extract_media_id(sample_image_success, "UNKNOWN_TYPE") is None
 
+    def test_motion_clip_media_id_accepted(self):
+        raw = {
+            "data": {
+                "operations": [{
+                    "status": "MEDIA_GENERATION_STATUS_SUCCESSFUL",
+                    "operation": {
+                        "name": "motion-s1-vertical",
+                        "metadata": {
+                            "video": {
+                                "mediaId": "motion-s1-vertical",
+                                "fifeUrl": "file:///tmp/scene.mp4",
+                            }
+                        },
+                    },
+                }]
+            }
+        }
+        assert _extract_media_id(raw, "GENERATE_VIDEO") == "motion-s1-vertical"
+        assert _extract_output_url(raw, "GENERATE_VIDEO") == "file:///tmp/scene.mp4"
+
 
 # ---------------------------------------------------------------------------
 # _extract_output_url

@@ -249,7 +249,7 @@ System generates ref image per entity → then composes scenes using those refs
 
 ### Using Skills (recommended)
 
-Skills handle all the API calls, polling, and verification automatically. Use with Claude Code or Google Antigravity 2.0 (`/fk-command`) or follow the recipe in `skills/*.md` for any AI agent.
+Skills handle all the API calls, polling, and verification automatically. Use with Claude Code, Google Antigravity 2.0, or OpenCode (`/fk-command`) or follow the recipe in `skills/*.md` for any AI agent.
 
 ```
 /fk-create-project             ← interactive: asks story, creates entities + scenes
@@ -431,7 +431,7 @@ The worker auto-appends `"No background music. Keep only natural sound effects a
 
 ## Skills (AI Agent Workflows)
 
-Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` in Claude Code and Google Antigravity 2.0):
+Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` in Claude Code, Google Antigravity 2.0, and OpenCode):
 
 ### Basic Pipeline
 
@@ -451,6 +451,7 @@ Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` 
 | Skill | Description |
 |-------|-------------|
 | `/fk-gen-chain-videos` | Auto start+end frame chaining for smooth transitions (i2v_fl) |
+| `/fk-render-motion` | Vox-style Ken Burns clips from scene stills (no AI video API) |
 | `/fk-insert-scene` | Multi-angle shots, cutaways, close-ups within a chain |
 | `/fk-creative-mix` | Analyze story + suggest all techniques (chain, insert, r2v, parallel) |
 
@@ -511,13 +512,14 @@ Skills are `.md` recipes any AI coding-assistant CLI can read and follow — thi
 |-----|-------------|-----------------|
 | Claude Code | `CLAUDE.md` (auto-loaded) | Native `/fk-*` slash commands |
 | Antigravity 2.0 | `.agents/rules/flowkit.md` + `AGENTS.md` | Skills in `.agents/skills/` (auto-activate) + workflows `/fk-*` |
+| OpenCode | `AGENTS.md` + `.opencode/skills/` | Skills auto-load via `skill` tool + `/fk-*` commands |
 | Codex CLI | `AGENTS.md` → reads `CLAUDE.md` | User says `/fk-<name>`, agent reads `skills/fk-<name>.md` |
 | Gemini CLI | `GEMINI.md` → reads `CLAUDE.md` | Same pattern |
 
 Generate the adapter for your tool (skills stay in `skills/` as the source of truth):
 
 ```bash
-python setup.py --tool antigravity   # or claude / gemini / codex / all
+python setup.py --tool antigravity   # or opencode / claude / gemini / codex / all
 ```
 
 ### AI Vision Providers (Video Review)
@@ -665,9 +667,10 @@ youtube/
         ├── channel_rules.json   # Upload rules + SEO defaults
         └── upload_history.json  # Upload log
 CLAUDE.md                # AI agent instructions (Claude Code)
-AGENTS.md                # AI agent instructions (Codex CLI / Antigravity)
+AGENTS.md                # AI agent instructions (Codex / Antigravity / OpenCode)
 GEMINI.md                # AI agent instructions (Gemini CLI)
 .agents/                 # Antigravity 2.0 skills, workflows, rules (generated)
+.opencode/               # OpenCode skills + slash commands (generated)
 ```
 
 ## TTS Narration (OmniVoice)
