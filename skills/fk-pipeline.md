@@ -10,7 +10,7 @@ Options:
 - `--download` — auto-download 4K files as upscales complete
 - `--concat` — run concat after all stages done
 - `--notify` — send Telegram notifications at milestones
-- `--interval N` — poll interval in seconds (default: 15)
+- `--interval N` — poll interval in seconds (default: **180** for VIDEOS/UPSCALE; keep 15 for REFS/IMAGES)
 - `--orientation H|V` — HORIZONTAL or VERTICAL (auto-detected from video.orientation if omitted)
 
 Examples:
@@ -220,7 +220,7 @@ curl -X POST http://127.0.0.1:8100/api/requests \
   -d '{"type":"GENERATE_VIDEO","scene_id":"<SID>","project_id":"<PID>","video_id":"<VID>","orientation":"<ORIENTATION>"}'
 ```
 
-Batch 5. Poll 15s. Each video takes 2-5 min.
+Batch 5. Poll every **180s (3 minutes)**. Each Low Priority clip commonly takes 15–30 minutes. Do not poll every few seconds.
 
 ---
 
@@ -349,7 +349,6 @@ Invoke: `/fk-concat --4k --with-tts` (or appropriate flags based on what was run
 ```python
 import time
 
-INTERVAL = 15
 cycle = 0
 
 while stages_to_run:
@@ -385,6 +384,9 @@ while stages_to_run:
             run_concat()
         break
 
+    # Refs/images: 15s. Videos/upscale: 180s (3 min) — clips take 15–30 min.
+    active = stages_to_run[0] if stages_to_run else ""
+    INTERVAL = 180 if active in ('VIDEOS', 'UPSCALE') else 15
     time.sleep(INTERVAL)
 ```
 
@@ -461,7 +463,7 @@ Main agent handles upscale + downloads. Both finish independently.
 Stage:     UPSCALE (39/50) + DOWNLOAD (39/50) rolling
 Queue:     5 pending / 5 processing
 TTS:       50/50 ✓ (parallel, done)
-Cycle 12 / next poll in 15s...
+Cycle 12 / next poll in 180s...
 ```
 
 ---

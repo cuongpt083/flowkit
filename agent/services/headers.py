@@ -4,8 +4,12 @@ import time
 from agent.config import USER_AGENTS, CHROME_VERSIONS, BROWSER_VALIDATIONS, CLIENT_DATA
 
 
-def random_headers() -> dict:
-    """Generate randomized browser-like headers for Google Flow API."""
+def random_headers(*, method: str = "POST") -> dict:
+    """Generate randomized browser-like headers for Google Flow API.
+
+    GET requests omit Content-Type — aisandbox rejects GET /v1/media with
+    INVALID_ARGUMENT when a body content-type is present.
+    """
     ua = random.choice(USER_AGENTS)
     chrome_ver = random.choice(CHROME_VERSIONS)
     validation = random.choice(BROWSER_VALIDATIONS)
@@ -18,10 +22,9 @@ def random_headers() -> dict:
     else:
         platform, mobile = '"Linux"', "?0"
 
-    return {
+    headers = {
         "accept": "*/*",
         "accept-language": "en-US,en;q=0.9",
-        "content-type": "text/plain;charset=UTF-8",
         "origin": "https://labs.google",
         "priority": "u=1, i",
         "referer": "https://labs.google/",
@@ -38,3 +41,6 @@ def random_headers() -> dict:
         "x-browser-year": "2025",
         "x-client-data": client_data,
     }
+    if str(method).upper() != "GET":
+        headers["content-type"] = "text/plain;charset=UTF-8"
+    return headers

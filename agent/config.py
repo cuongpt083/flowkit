@@ -22,7 +22,9 @@ RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "6LdsFiUsAAAAAIjVDZcuL
 
 # ─── Worker ──────────────────────────────────────────────────
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
-VIDEO_POLL_INTERVAL = int(os.environ.get("VIDEO_POLL_INTERVAL", "10"))  # polling interval for video/upscale status
+# How often the worker asks Flow for video/upscale status. Low Priority clips
+# commonly take 15–30 minutes; 180s avoids hammering the extension.
+VIDEO_POLL_INTERVAL = int(os.environ.get("VIDEO_POLL_INTERVAL", "180"))
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "5"))
 # One poll window. Expiry resumes the same Flow job; it does not submit again.
 VIDEO_POLL_TIMEOUT = int(os.environ.get("VIDEO_POLL_TIMEOUT", "1800"))

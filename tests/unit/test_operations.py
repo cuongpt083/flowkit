@@ -11,6 +11,9 @@ from agent.sdk.services.operations import (
     init_operations,
     get_operations,
     _operations_from_saved_handle,
+    _media_ready_info,
+    _ready_from_status_poll,
+    _poll_workflows,
 )
 
 
@@ -380,6 +383,61 @@ class TestMotionRenderMode:
         mock_kb.assert_called_once()
         assert result["data"]["operations"][0]["status"] == "MEDIA_GENERATION_STATUS_SUCCESSFUL"
         assert "motion-" in result["data"]["operations"][0]["operation"]["metadata"]["video"]["mediaId"]
+
+
+@pytest.mark.asyncio
+async def test_poll_workflows_completes_immediately_from_url():
+    mid = SAMPLE_UUID
+    client = AsyncMock()
+    client.get_media = AsyncMock(return_value={
+        "status": 200,
+        "data": {"video": {"fifeUrl": "https://storage.googleapis.com/v/done.mp4"}},
+    })
+    client.sync_completed_flow_videos = AsyncMock(return_value={"completed": 0})
+    ops = [{
+        "operation": {"name": "wf-1", "metadata": {"video": {"mediaId": mid}}},
+        "status": "MEDIA_GENERATION_STATUS_PENDING",
+        "_workflow_mode": True,
+        "_primary_media_id": mid,
+    }]
+    with patch("agent.sdk.services.operations.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        result = await _poll_workflows(client, ops, timeout=1800)
+    mock_sleep.assert_not_awaited()
+    assert result["data"]["operations"][0]["status"] == "MEDIA_GENERATION_STATUS_SUCCESSFUL"
+    assert "done.mp4" in result["data"]["operations"][0]["operation"]["metadata"]["video"]["fifeUrl"]
+
+
+def test_media_ready_info_accepts_url_or_mp4():
+    assert _media_ready_info({"error": "nope"}) is None
+    assert _media_ready_info({"status": 400, "data": {"error": {"message": "bad"}}}) is None
+    url_ready = _media_ready_info({
+        "status": 200,
+        "data": {"video": {"fifeUrl": "https://storage.googleapis.com/v/abc.mp4"}},
+    })
+    assert url_ready["url"].startswith("https://")
+    assert url_ready["binary"] == b""
+
+    # minimal valid ftyp box
+    mp4 = b"\x00\x00\x00\x18ftypisom" + b"\x00" * 16
+    import base64
+    enc = base64.b64encode(mp4).decode()
+    bin_ready = _media_ready_info({"data": {"video": {"encodedVideo": enc}}})
+    assert bin_ready["binary"][:8].endswith(b"ftyp")
+
+
+def test_ready_from_status_poll_successful():
+    ready = _ready_from_status_poll({
+        "data": {
+            "operations": [{
+                "status": "MEDIA_GENERATION_STATUS_SUCCESSFUL",
+                "operation": {"metadata": {"video": {
+                    "mediaId": SAMPLE_UUID,
+                    "fifeUrl": "https://storage.googleapis.com/v/x.mp4",
+                }}},
+            }]
+        }
+    }, SAMPLE_UUID)
+    assert ready["url"].endswith(".mp4")
 
 
 def test_operations_from_saved_handle_workflow_and_classic():

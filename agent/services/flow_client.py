@@ -7,7 +7,9 @@ extension executes them in browser context (residential IP, cookies, reCAPTCHA).
 import asyncio
 import json
 import logging
+import re
 import time
+import urllib.parse
 import uuid
 from typing import Optional
 
@@ -18,6 +20,196 @@ from agent.config import (
 from agent.services.headers import random_headers
 
 logger = logging.getLogger(__name__)
+
+_VIDEO_REQ_TYPES = ("GENERATE_VIDEO", "REGENERATE_VIDEO", "GENERATE_VIDEO_REFS")
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+def _extract_user_workflows(resp: dict) -> list:
+    data = resp.get("data", resp)
+    if isinstance(data, list) and data:
+        data = data[0]
+    for _ in range(8):
+        if not isinstance(data, dict):
+            break
+        if isinstance(data.get("userWorkflows"), list):
+            return data["userWorkflows"]
+        nxt = None
+        for key in ("result", "data", "json"):
+            if isinstance(data.get(key), (dict, list)):
+                nxt = data[key]
+                break
+        if nxt is None:
+            break
+        data = nxt[0] if isinstance(nxt, list) and nxt else nxt
+    if isinstance(data, dict) and isinstance(data.get("result"), dict):
+        wfs = data["result"].get("userWorkflows")
+        if isinstance(wfs, list):
+            return wfs
+    return []
+
+
+def _unwrap_trpc_json(resp: dict) -> dict:
+    data = resp.get("data", resp)
+    if isinstance(data, list) and data:
+        data = data[0]
+    for _ in range(8):
+        if not isinstance(data, dict):
+            return {}
+        if "projectContents" in data:
+            return data
+        nxt = None
+        for key in ("result", "data", "json"):
+            if isinstance(data.get(key), (dict, list)):
+                nxt = data[key]
+                break
+        if nxt is None:
+            return data
+        data = nxt[0] if isinstance(nxt, list) and nxt else nxt
+    return data if isinstance(data, dict) else {}
+
+
+def _extract_project_board_clips(resp: dict) -> list[dict]:
+    """Completed 8s videos from flow.projectInitialData (title = board displayName)."""
+    root = _unwrap_trpc_json(resp)
+    pc = root.get("projectContents") if isinstance(root, dict) else None
+    if not isinstance(pc, dict):
+        return []
+    workflows = {
+        wf.get("name"): wf
+        for wf in (pc.get("workflows") or [])
+        if isinstance(wf, dict) and wf.get("name")
+    }
+    clips: list[dict] = []
+    for media in pc.get("media") or []:
+        if not isinstance(media, dict) or not isinstance(media.get("video"), dict):
+            continue
+        video = media["video"]
+        length = str((video.get("dimensions") or {}).get("length") or "").lower()
+        blob = (media.get("mediaMetadata") or {}).get("mediaBlobSize")
+        if length not in ("8s", "8", "8.0") and not blob:
+            continue
+        mid = media.get("name") or ""
+        wf = workflows.get(media.get("workflowId") or "", {})
+        title = ((wf.get("metadata") or {}).get("displayName") or "").strip()
+        clips.append({
+            "title": title or mid[:8],
+            "duration": 8.0 if length.startswith("8") else None,
+            "duration8": length.startswith("8") or bool(blob),
+            "mediaId": mid or None,
+            "workflowId": media.get("workflowId"),
+            "url": f"https://flow-content.google/video/{mid}" if mid else None,
+            "completed": True,
+            "hasVideo": True,
+        })
+    return clips
+
+
+def _walk_collect(obj, pred, found):
+    if isinstance(obj, dict):
+        for v in obj.values():
+            if pred(v):
+                found.append(v)
+            _walk_collect(v, pred, found)
+    elif isinstance(obj, list):
+        for v in obj:
+            if pred(v):
+                found.append(v)
+            _walk_collect(v, pred, found)
+
+
+def _workflow_identity_ids(wf: dict) -> set[str]:
+    found: list[str] = []
+    _walk_collect(wf, lambda v: isinstance(v, str) and bool(_UUID_RE.match(v)), found)
+    return set(found)
+
+
+def _workflow_video_url(wf: dict) -> str:
+    found: list[str] = []
+
+    def is_video_url(v):
+        if not isinstance(v, str) or not v.startswith("http"):
+            return False
+        low = v.lower()
+        return "/video/" in low or "videofx" in low or low.endswith(".mp4")
+
+    _walk_collect(wf, is_video_url, found)
+    return found[0] if found else ""
+
+
+def _workflow_generation_id(wf: dict) -> str:
+    found: list[str] = []
+
+    def is_gen_id(v):
+        return isinstance(v, str) and (v.startswith("CAMS") or v.startswith("CAUS") or v.startswith("CAMa"))
+
+    _walk_collect(wf, is_gen_id, found)
+    if found:
+        return found[0]
+    media = wf.get("media") if isinstance(wf.get("media"), dict) else {}
+    gen = media.get("mediaGenerationId")
+    if isinstance(gen, str) and not _UUID_RE.match(gen):
+        return gen
+    name = wf.get("name")
+    if isinstance(name, str) and not _UUID_RE.match(name):
+        return name
+    return ""
+
+
+def _url_from_media_response(resp: dict) -> str:
+    if resp.get("error"):
+        return ""
+    data = resp.get("data", resp)
+    if not isinstance(data, dict):
+        return ""
+    video = data.get("video") if isinstance(data.get("video"), dict) else {}
+    for key in ("fifeUrl", "servingUri", "videoUri"):
+        val = video.get(key) or data.get(key)
+        if isinstance(val, str) and val.startswith("http"):
+            return val
+    return ""
+
+
+async def _bind_intercepted_video_to_request(media_id: str, url: str) -> bool:
+    """If Flow's UI already has this clip, mark the matching in-flight request done."""
+    from agent.db import crud
+    from agent.services.event_bus import event_bus
+
+    for status in ("PROCESSING", "PENDING"):
+        for req in await crud.list_requests(status=status):
+            if req.get("type") not in _VIDEO_REQ_TYPES:
+                continue
+            if req.get("media_id") != media_id and req.get("request_id") != media_id:
+                continue
+            scene_id = req.get("scene_id")
+            if not scene_id:
+                continue
+            ori = (req.get("orientation") or "HORIZONTAL").upper()
+            prefix = "vertical" if ori == "VERTICAL" else "horizontal"
+            await crud.update_scene(
+                scene_id,
+                **{
+                    f"{prefix}_video_media_id": media_id,
+                    f"{prefix}_video_url": url,
+                    f"{prefix}_video_status": "COMPLETED",
+                },
+            )
+            await crud.update_request(
+                req["id"],
+                status="COMPLETED",
+                media_id=media_id,
+                output_url=url,
+                error_message=None,
+            )
+            await event_bus.emit("request_update", {"id": req["id"], "status": "COMPLETED"})
+            logger.info(
+                "Bound Flow UI video %s to request %s scene %s",
+                media_id[:8], req["id"][:8], scene_id[:8],
+            )
+            return True
+    return False
 
 
 class FlowClient:
@@ -190,8 +382,14 @@ class FlowClient:
             asyncio.create_task(self._sync_tier())
             return
 
+        if data.get("type") == "debug_net":
+            logger.info("Extension net %s bytes=%s", data.get("url"), data.get("bytes"))
+            return
+
         if data.get("type") == "media_urls_refresh":
-            asyncio.create_task(self._refresh_media_urls(data.get("urls", [])))
+            urls = data.get("urls") or []
+            logger.info("Extension sent %d captured media URL(s)", len(urls))
+            asyncio.create_task(self._refresh_media_urls(urls))
             return
 
         if data.get("type") == "pong":
@@ -235,7 +433,9 @@ class FlowClient:
             self._sync_in_progress = False
 
     _UUID_RE = __import__("re").compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
-    _SAFE_URL_RE = __import__("re").compile(r'^https://(storage\.googleapis\.com|lh3\.googleusercontent\.com)/')
+    _SAFE_URL_RE = __import__("re").compile(
+        r'^https://(storage\.googleapis\.com|lh3\.googleusercontent\.com|flow-content\.google)/'
+    )
 
     async def _refresh_media_urls(self, urls: list[dict]):
         """Update scene/character URLs in DB from fresh TRPC-captured signed URLs.
@@ -283,6 +483,11 @@ class FlowClient:
                         updates["horizontal_upscale_url"] = url
                 if updates:
                     await crud.update_scene(scene["id"], **updates)
+                    updated += 1
+
+            if media_type == "video":
+                bound = await _bind_intercepted_video_to_request(media_id, url)
+                if bound:
                     updated += 1
 
             # Try matching against characters
@@ -657,18 +862,315 @@ class FlowClient:
         status = result.get("status", 500)
         return isinstance(status, int) and status == 200
 
-    async def get_media(self, media_id: str) -> dict:
-        """Fetch media metadata from Google Flow.
+    async def fetch_pinhole_history(self, page_size: int = 50, project_id: str | None = None) -> dict:
+        """List recent Flow video workflows (labs.google tRPC)."""
+        payload = {
+            "json": {
+                "type": "PINHOLE",
+                "pageSize": page_size,
+                "responseScope": "RESPONSE_SCOPE_UNSPECIFIED",
+                "cursor": None,
+            },
+            "meta": {"values": {"cursor": ["undefined"]}},
+        }
+        inner = {
+            "type": "PINHOLE",
+            "pageSize": page_size,
+            "responseScope": "RESPONSE_SCOPE_UNSPECIFIED",
+        }
+        attempts = [
+            (
+                "https://labs.google/fx/api/trpc/media.fetchUserHistoryDirectly?batch=1",
+                {"0": {"json": inner}},
+            ),
+            (
+                "https://labs.google/fx/api/trpc/media.fetchUserHistoryDirectly",
+                payload,
+            ),
+            (
+                "https://labs.google/fx/api/trpc/media.fetchUserHistory?batch=1",
+                {"0": {"json": inner}},
+            ),
+            (
+                "https://labs.google/fx/api/trpc/project.getProject?batch=1",
+                {"0": {"json": {"projectId": project_id}}} if project_id else None,
+            ),
+            (
+                "https://labs.google/fx/api/trpc/flow.getFlow?batch=1",
+                {"0": {"json": {"projectId": project_id}}} if project_id else None,
+            ),
+        ]
+        attempts = [(u, b) for u, b in attempts if b]
+        last: dict = {"status": 400, "data": None}
+        for url, body in attempts:
+            result = await self._send("trpc_request", {
+                "url": url,
+                "method": "POST",
+                "headers": {"content-type": "application/json", "accept": "*/*"},
+                "body": body,
+            }, timeout=30)
+            last = result
+            if _extract_user_workflows(result):
+                return result
+            status = result.get("status")
+            data = result.get("data")
+            looks_ok = isinstance(status, int) and status == 200 and isinstance(data, (dict, list))
+            if looks_ok and not (isinstance(data, dict) and data.get("error")):
+                return result
+        return last
 
-        Returns the raw API response which contains a fresh signed URL
-        in data.fifeUrl or data.servingUri.
-        """
-        url = f"{GOOGLE_FLOW_API}/v1/media/{media_id}?key={GOOGLE_API_KEY}&clientContext.tool=PINHOLE"
-        return await self._send("api_request", {
+    async def fetch_project_initial_data(self, project_id: str) -> dict:
+        """GET flow.projectInitialData — the payload the Flow project tab actually uses."""
+        if not project_id:
+            return {"error": "missing project_id", "status": 400}
+        inner = {"json": {"projectId": project_id}}
+        encoded = urllib.parse.quote(json.dumps(inner, separators=(",", ":")))
+        url = (
+            "https://labs.google/fx/api/trpc/flow.projectInitialData"
+            f"?input={encoded}"
+        )
+        return await self._send("trpc_request", {
             "url": url,
             "method": "GET",
-            "headers": random_headers(),
-        }, timeout=15)
+            "headers": {"accept": "*/*"},
+        }, timeout=30)
+
+    async def fetch_pinhole_history_get(self, page_size: int = 50) -> dict:
+        inner = {
+            "json": {
+                "type": "PINHOLE",
+                "pageSize": page_size,
+                "responseScope": "RESPONSE_SCOPE_UNSPECIFIED",
+            }
+        }
+        encoded = urllib.parse.quote(json.dumps(inner, separators=(",", ":")))
+        urls = [
+            f"https://labs.google/fx/api/trpc/media.fetchUserHistoryDirectly?batch=1&input={encoded}",
+            f"https://labs.google/fx/api/trpc/media.fetchUserHistoryDirectly?input={encoded}",
+        ]
+        last: dict = {"status": 400}
+        for url in urls:
+            last = await self._send("trpc_request", {
+                "url": url,
+                "method": "GET",
+                "headers": {"accept": "*/*"},
+            }, timeout=30)
+            if _extract_user_workflows(last):
+                return last
+        return last
+
+    async def sync_completed_flow_videos(self, project_id: str | None = None) -> dict:
+        """Mark in-flight video requests COMPLETED when Flow history already has the clip."""
+        from agent.db import crud
+        from agent.services.event_bus import event_bus
+
+        hist = await self.fetch_pinhole_history(page_size=80, project_id=project_id)
+        workflows = _extract_user_workflows(hist)
+        if not workflows:
+            # Retry GET shape used by the Flow web app
+            hist = await self.fetch_pinhole_history_get(page_size=80)
+            workflows = _extract_user_workflows(hist)
+        if not workflows:
+            if not project_id:
+                inflight = []
+                for status in ("PROCESSING", "PENDING"):
+                    inflight.extend(await crud.list_requests(status=status))
+                inflight = [r for r in inflight if r.get("type") in _VIDEO_REQ_TYPES]
+                project_id = next((r.get("project_id") for r in inflight if r.get("project_id")), None)
+            board = await self.scrape_flow_tab()
+            scraped = board.get("entries") or []
+            clips = board.get("clips") or []
+            completed = 0
+            leftover_ids = []
+            for entry in scraped:
+                if await _bind_intercepted_video_to_request(entry["mediaId"], entry["url"]):
+                    completed += 1
+                else:
+                    leftover_ids.append(entry["mediaId"][:8])
+            if leftover_ids:
+                logger.info("Scraped video ids with no matching request: %s", leftover_ids)
+            if project_id:
+                initial = await self.fetch_project_initial_data(project_id)
+                initial_clips = _extract_project_board_clips(initial)
+                if initial_clips:
+                    logger.info("projectInitialData 8s videos=%s", [c.get("title") for c in initial_clips])
+                    clips = initial_clips
+                    for clip in initial_clips:
+                        mid = clip.get("mediaId") or ""
+                        url = clip.get("url") or ""
+                        if not mid or not url:
+                            continue
+                        if await _bind_intercepted_video_to_request(mid, url):
+                            completed += 1
+                        elif clip.get("workflowId") and await _bind_intercepted_video_to_request(
+                            clip["workflowId"], url
+                        ):
+                            completed += 1
+            err = hist.get("error")
+            data = hist.get("data")
+            logger.info(
+                "Flow history empty status=%s scraped=%s bound=%s board_clips=%s",
+                hist.get("status"), len(scraped), completed, len(clips),
+            )
+            out = {
+                "matched": completed,
+                "completed": completed,
+                "workflows": 0,
+                "scraped": len(scraped),
+                "board_clips": clips,
+                "board_completed_8s": [
+                    c for c in clips
+                    if c.get("duration8") or c.get("hasVideo") or c.get("completed")
+                ],
+            }
+            if completed == 0:
+                out["error"] = err or hist.get("status")
+                out["snippet"] = str(data)[:300] if data is not None else None
+            return out
+
+        inflight = []
+        for status in ("PROCESSING", "PENDING"):
+            inflight.extend(await crud.list_requests(status=status, project_id=project_id))
+        inflight = [r for r in inflight if r.get("type") in _VIDEO_REQ_TYPES]
+        completed = 0
+        matched = 0
+        for req in inflight:
+            handles = {h for h in (req.get("media_id"), req.get("request_id")) if h}
+            if not handles:
+                continue
+            for wf in workflows:
+                ids = _workflow_identity_ids(wf)
+                if not (handles & ids):
+                    continue
+                matched += 1
+                url = _workflow_video_url(wf)
+                mid = req.get("media_id") or next(iter(ids), "")
+                if not url:
+                    gen_id = _workflow_generation_id(wf)
+                    if gen_id:
+                        media = await self.get_media(gen_id)
+                        ready_url = _url_from_media_response(media)
+                        if ready_url:
+                            url = ready_url
+                if not url:
+                    logger.info("History matched request %s but no video URL yet", req["id"][:8])
+                    break
+                scene_id = req.get("scene_id")
+                if scene_id:
+                    ori = (req.get("orientation") or "HORIZONTAL").upper()
+                    prefix = "vertical" if ori == "VERTICAL" else "horizontal"
+                    await crud.update_scene(
+                        scene_id,
+                        **{
+                            f"{prefix}_video_media_id": mid,
+                            f"{prefix}_video_url": url,
+                            f"{prefix}_video_status": "COMPLETED",
+                        },
+                    )
+                await crud.update_request(
+                    req["id"],
+                    status="COMPLETED",
+                    media_id=mid,
+                    output_url=url,
+                    error_message=None,
+                )
+                await event_bus.emit("request_update", {"id": req["id"], "status": "COMPLETED"})
+                completed += 1
+                logger.info("Synced Flow video to request %s (%s)", req["id"][:8], url[:80])
+                break
+        return {"matched": matched, "completed": completed, "workflows": len(workflows)}
+
+    async def scrape_flow_tab(self) -> dict:
+        """Harvest signed video URLs and board card titles from the open Flow tab."""
+        result = await self._send("scrape_flow_media", {}, timeout=20)
+        data = result.get("data") if isinstance(result.get("data"), dict) else {}
+        urls = data.get("urls") or []
+        clips = data.get("clips") or []
+        logger.info(
+            "Scraped Flow tab href=%s videoEls=%s urls=%s cards=%s exact=%s err=%s",
+            data.get("href"), data.get("videoEls"), len(urls),
+            data.get("cardCount"), data.get("exactTitle"), result.get("error"),
+        )
+        if clips:
+            logger.info(
+                "Board clip titles: %s",
+                [c.get("title") for c in clips[:20]],
+            )
+        entries = self._entries_from_urls(urls)
+        return {
+            "entries": entries,
+            "clips": clips,
+            "exactTitle": data.get("exactTitle") or [],
+            "href": data.get("href"),
+        }
+
+    def _entries_from_urls(self, urls: list) -> list[dict]:
+        entries: list[dict] = []
+        seen: set[str] = set()
+        for url in urls:
+            if not isinstance(url, str):
+                continue
+            typed = re.search(r"/(image|video)/([0-9a-f-]{36})", url, re.I)
+            if typed:
+                media_type, media_id = typed.group(1).lower(), typed.group(2)
+            else:
+                loose = re.search(
+                    r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+                    url,
+                    re.I,
+                )
+                if not loose:
+                    continue
+                media_id = loose.group(1)
+                low = url.lower()
+                media_type = (
+                    "video"
+                    if ("/video/" in low or "videofx" in low or low.endswith(".mp4"))
+                    else "image"
+                )
+            if media_type != "video" or media_id in seen:
+                continue
+            seen.add(media_id)
+            entries.append({"mediaId": media_id, "mediaType": "video", "url": url})
+        if entries:
+            logger.info("Scraped video media ids: %s", [e["mediaId"][:8] for e in entries])
+        return entries
+
+    async def scrape_flow_tab_videos(self) -> list[dict]:
+        """Ask the extension to harvest signed video URLs from the open Flow tab."""
+        board = await self.scrape_flow_tab()
+        return board.get("entries") or []
+
+    async def get_media(self, media_id: str) -> dict:
+        """Fetch media metadata / encoded bytes from Google Flow.
+
+        Production GET does not take clientContext query params — those
+        produce INVALID_ARGUMENT. Try the documented path first, then
+        a couple of legacy variants.
+        """
+        if not media_id:
+            return {"error": "missing media_id", "status": 400}
+        headers = random_headers(method="GET")
+        enc = urllib.parse.quote(media_id, safe="-_.")
+        urls = [
+            f"{GOOGLE_FLOW_API}/v1/media/{enc}?key={GOOGLE_API_KEY}&clientContext.tool=PINHOLE&returnUriOnly=true",
+            f"{GOOGLE_FLOW_API}/v1/media/{enc}?key={GOOGLE_API_KEY}&returnUriOnly=true",
+            f"{GOOGLE_FLOW_API}/v1/media/{enc}?key={GOOGLE_API_KEY}&clientContext.tool=PINHOLE",
+            f"{GOOGLE_FLOW_API}/v1/media/{enc}?key={GOOGLE_API_KEY}",
+        ]
+        last: dict = {"error": "get_media failed", "status": 400}
+        for url in urls:
+            result = await self._send("api_request", {
+                "url": url,
+                "method": "GET",
+                "headers": headers,
+            }, timeout=20)
+            status = result.get("status", 500)
+            if isinstance(status, int) and status == 200 and not result.get("error"):
+                logger.debug("get_media %s ok via %s", media_id[:8], url.split("?")[0])
+                return result
+            last = result
+        return last
 
     async def upload_image(self, image_base64: str, mime_type: str = "image/jpeg",
                             project_id: str = "", file_name: str = "image.jpg") -> dict:

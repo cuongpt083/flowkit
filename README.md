@@ -626,7 +626,8 @@ Materials control both entity `image_prompt` style and scene `scene_prefix`. Exa
 | `API_PORT` | `8100` | REST API port |
 | `WS_HOST` | `127.0.0.1` | WebSocket server bind |
 | `WS_PORT` | `9222` | WebSocket server port |
-| `POLL_INTERVAL` | `5` | Worker poll interval (seconds) |
+| `POLL_INTERVAL` | `5` | Worker queue scan interval (seconds) |
+| `VIDEO_POLL_INTERVAL` | `180` | How often the worker asks Flow for video/upscale status (seconds). 3 minutes — clips often take 15–30 minutes |
 | `MAX_RETRIES` | `5` | Max retries per request |
 | `VIDEO_POLL_TIMEOUT` | `1800` | One video poll window (seconds). Expiry resumes the same Flow job; it does not submit again. |
 | `API_COOLDOWN` | `10` | Seconds between API calls (anti-spam) |

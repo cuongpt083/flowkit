@@ -7,7 +7,7 @@ Usage: `/fk-monitor [project_id] [orientation] [--download] [--interval N]`
 - `project_id` — omit to use most recently active project
 - `orientation` — `HORIZONTAL` or `VERTICAL` (auto-detected from video.orientation if omitted)
 - `--download` — auto-download new upscales to `output/{slug}/4k/`
-- `--interval N` — poll interval in seconds (default: 30)
+- `--interval N` — poll interval in seconds (default: **180**, 3 minutes)
 
 ## When to Use
 
@@ -342,7 +342,7 @@ prev_snapshot = None
 prev_all_done = False
 last_change_ts = time.time()
 cycle = 0
-INTERVAL = 30  # override with --interval N
+INTERVAL = 180  # 3 minutes; override with --interval N
 
 while True:
     cycle += 1
@@ -388,7 +388,7 @@ Print a compact status line to console each cycle so progress is visible:
 [cycle 12 | 14:32:01] <project_name>
   Refs:    5/5  ✓  | Images: 23/40  | Videos: 18/40  | 4K: 10/40
   Queue:   3 pending / 2 processing | Failed: 0
-  Next poll in 30s...
+  Next poll in 180s...
 ```
 
 ---

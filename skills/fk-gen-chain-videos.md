@@ -70,9 +70,10 @@ curl -X POST http://127.0.0.1:8100/api/requests/batch \
 
 Build the `requests` array from ALL scenes in display_order. Do NOT manually batch or loop.
 
-Poll aggregate status every 30s until done:
+Poll aggregate status every **180 seconds (3 minutes)** until done. Do **not** poll more often.
 
 ```bash
+sleep 180
 curl -s "http://127.0.0.1:8100/api/requests/batch-status?video_id=<VID>&type=GENERATE_VIDEO"
 # Wait for: "done": true
 # If "all_succeeded": false → some failed, check individual failures

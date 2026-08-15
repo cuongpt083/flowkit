@@ -83,6 +83,31 @@ async function init() {
 
 // ─── Token Capture ──────────────────────────────────────────
 
+// Re-fetch completed TRPC/media GETs in the SW (page fetch hooks miss some SPA/XHR paths).
+chrome.webRequest.onCompleted.addListener((details) => {
+  if (details.tabId < 0 || details.statusCode !== 200) return;
+  const url = details.url || '';
+  const interesting =
+    url.includes('/fx/api/trpc/')
+    || url.includes('/v1/media/')
+    || url.includes('aisandbox-pa.googleapis.com');
+  if (!interesting) return;
+  if ((details.method || 'GET').toUpperCase() !== 'GET') return;
+  fetch(url, { credentials: 'include', cache: 'no-store' })
+    .then((r) => r.text())
+    .then((text) => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'debug_net',
+          url: url.slice(0, 180),
+          bytes: text.length,
+        }));
+      }
+      handleTrpcMediaUrls(url, text);
+    })
+    .catch(() => {});
+}, { urls: ['https://labs.google/*', 'https://aisandbox-pa.googleapis.com/*'] });
+
 chrome.webRequest.onBeforeSendHeaders.addListener(
   (details) => {
     if (!details?.requestHeaders?.length) return;
@@ -198,6 +223,8 @@ function connectToAgent() {
         await handleApiRequest(msg);
       } else if (msg.method === 'trpc_request') {
         await handleTrpcRequest(msg);
+      } else if (msg.method === 'scrape_flow_media') {
+        await handleScrapeFlowMedia(msg);
       } else if (msg.method === 'solve_captcha') {
         await handleSolveCaptcha(msg);
       } else if (msg.method === 'get_status') {
@@ -605,23 +632,130 @@ chrome.runtime.onMessage.addListener((msg, _, reply) => {
 
 // ─── TRPC Media URL Extractor ──────────────────────────────
 
+async function handleScrapeFlowMedia(msg) {
+  const { id } = msg;
+  const tabs = await chrome.tabs.query({
+    url: ['https://labs.google/fx/tools/flow*', 'https://labs.google/fx/*/tools/flow*'],
+  });
+  if (!tabs.length) {
+    sendToAgent({ id, error: 'NO_FLOW_TAB', data: { urls: [], videoEls: 0 } });
+    return;
+  }
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tabs[0].id },
+      func: () => {
+        const found = [];
+        const add = (u) => {
+          if (typeof u === 'string' && u.startsWith('http') && !found.includes(u)) found.push(u);
+        };
+        document.querySelectorAll('video, source, img, a').forEach((el) => {
+          add(el.currentSrc);
+          add(el.src);
+          add(el.poster);
+          add(el.href);
+        });
+        try {
+          performance.getEntriesByType('resource').forEach((e) => add(e.name));
+        } catch {}
+        const html = document.documentElement ? document.documentElement.innerHTML : '';
+        const re = /https:\/\/(?:flow-content\.google|storage\.googleapis\.com|lh3\.googleusercontent\.com)[^"'\\\s<>]+/g;
+        let m;
+        while ((m = re.exec(html))) add(m[0].replace(/&amp;/g, '&'));
+
+        const xpAll = (path, root) => {
+          const out = [];
+          try {
+            const snap = document.evaluate(
+              path, root || document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null,
+            );
+            for (let i = 0; i < snap.snapshotLength; i++) out.push(snap.snapshotItem(i));
+          } catch {}
+          return out;
+        };
+        const TITLE_XPATH = '/html/body/div[1]/div[1]/div[4]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div/div/span/div/div/div/div/span/div/div/div[1]/div[1]/div/div';
+        const CARD_XPATH = '/html/body/div[1]/div[1]/div[4]/div[2]/div/div/div/div[2]/div[1]/div/div';
+        const isEightSec = (text) => /(?:0:08|00:08|\b8s\b|\b8 sec|\b8 seconds|\b8 giây)/i.test(text || '');
+        const cards = xpAll(CARD_XPATH);
+        const clips = cards.map((card, i) => {
+          const text = (card.innerText || '').replace(/\u00a0/g, ' ').trim();
+          const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
+          const video = card.querySelector('video');
+          const cardUrls = [];
+          card.querySelectorAll('video, source, img').forEach((el) => {
+            const u = el.currentSrc || el.src || el.poster;
+            if (u && String(u).startsWith('http')) cardUrls.push(u);
+          });
+          const htmlCard = card.innerHTML || '';
+          let hm;
+          const hrefRe = /https:\/\/(?:flow-content\.google|storage\.googleapis\.com|lh3\.googleusercontent\.com)[^"'\\\s<>]+/g;
+          while ((hm = hrefRe.exec(htmlCard))) cardUrls.push(hm[0].replace(/&amp;/g, '&'));
+          return {
+            index: i + 1,
+            title: lines[0] || '',
+            lines: lines.slice(0, 10),
+            duration8: isEightSec(text),
+            hasVideo: !!video,
+            videoSrc: video ? (video.currentSrc || video.src || '') : '',
+            urls: [...new Set(cardUrls)].slice(0, 8),
+          };
+        });
+        const exactTitle = xpAll(TITLE_XPATH)
+          .map((el) => (el.innerText || '').trim())
+          .filter(Boolean);
+
+        return {
+          href: location.href,
+          title: document.title,
+          videoEls: document.querySelectorAll('video').length,
+          urls: found.filter((u) =>
+            /flow-content\.google|videofx|googleusercontent|\/video\/|\/image\/|\.mp4/i.test(u)
+          ).slice(0, 80),
+          clips,
+          exactTitle,
+          cardCount: cards.length,
+        };
+      },
+    });
+    const data = results?.[0]?.result || { urls: [] };
+    sendToAgent({ id, status: 200, data });
+  } catch (e) {
+    sendToAgent({ id, error: e.message || 'SCRAPE_FAILED', data: { urls: [] } });
+  }
+}
+
 function handleTrpcMediaUrls(trpcUrl, bodyText) {
   try {
-    // Extract all fresh GCS signed URLs
-    const urlRegex = /https:\/\/storage\.googleapis\.com\/ai-sandbox-videofx\/(?:image|video)\/[0-9a-f-]{36}\?[^"'\s]+/g;
+    // Flow has used GCS videofx, flow-content.google, and JSON fifeUrl fields.
+    const urlRegex = /https:\/\/(?:storage\.googleapis\.com\/[^"'\\\s]+|flow-content\.google|lh3\.googleusercontent\.com)\/(?:image|video)\/[0-9a-f-]{36}[^"'\s\\]*/gi;
+    const looseRegex = /https:\/\/(?:storage\.googleapis\.com|flow-content\.google|lh3\.googleusercontent\.com)[^"'\s\\]+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[^"'\s\\]*/gi;
+    const fifeRegex = /"fifeUrl"\s*:\s*"(https:[^"]+)"/g;
     const matches = bodyText.match(urlRegex) || [];
-    if (!matches.length) return;
+    const loose = bodyText.match(looseRegex) || [];
+    for (const u of loose) {
+      if (!matches.includes(u)) matches.push(u);
+    }
+    let m;
+    while ((m = fifeRegex.exec(bodyText))) {
+      matches.push(m[1].replace(/\\u0026/g, '&'));
+    }
+    if (!matches.length) {
+      console.log('[FlowAgent] TRPC body had media hints but no URL match', (trpcUrl || '').slice(0, 80));
+      return;
+    }
 
     // Deduplicate and parse
     const urlMap = {};
     for (const rawUrl of matches) {
       // Unescape JSON-escaped URLs
       const url = rawUrl.replace(/\\u0026/g, '&').replace(/\\/g, '');
-      const mediaMatch = url.match(/\/(image|video)\/([0-9a-f-]{36})\?/);
+      const mediaMatch = url.match(/\/(image|video)\/([0-9a-f-]{36})/i);
+      const uuidMatch = url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
       if (mediaMatch) {
         const [, mediaType, mediaId] = mediaMatch;
-        // Keep last occurrence (freshest)
-        urlMap[mediaId] = { mediaType, url, mediaId };
+        urlMap[mediaId] = { mediaType: mediaType.toLowerCase(), url, mediaId };
+      } else if (uuidMatch && /videofx|\.mp4|\/video\//i.test(url)) {
+        urlMap[uuidMatch[0]] = { mediaType: 'video', url, mediaId: uuidMatch[0] };
       }
     }
 

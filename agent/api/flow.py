@@ -153,6 +153,15 @@ async def refresh_project_urls(project_id: str):
     return result
 
 
+@router.post("/sync-videos")
+async def sync_videos(project_id: str | None = None):
+    """Match Flow history clips to in-flight GENERATE_VIDEO requests and mark them done."""
+    client = get_flow_client()
+    if not client.connected:
+        raise HTTPException(503, "Extension not connected")
+    return await client.sync_completed_flow_videos(project_id=project_id)
+
+
 @router.get("/media/{media_id}")
 async def get_media(media_id: str):
     """Get media metadata + fresh signed URL from Google Flow.

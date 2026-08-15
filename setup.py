@@ -324,7 +324,7 @@ curl -X POST http://127.0.0.1:8100/api/requests/batch \\
   -d '{"requests": [{"type": "...", "scene_id": "...", "project_id": "...", "video_id": "...", "orientation": "VERTICAL"}, ...]}'
 ```
 
-Poll aggregate status:
+Poll aggregate status (video jobs: every 180s, not every few seconds):
 
 ```bash
 curl -s "http://127.0.0.1:8100/api/requests/batch-status?video_id=<VID>&type=GENERATE_IMAGE"

@@ -190,89 +190,145 @@ def _operations_from_saved_handle(req_row: dict | None) -> list[dict] | None:
     }]
 
 
+def _unwrap_media_payload(resp: dict) -> dict:
+    data = resp.get("data", resp)
+    if isinstance(data, dict) and isinstance(data.get("data"), dict):
+        inner = data["data"]
+        if any(k in inner for k in ("video", "fifeUrl", "servingUri", "videoUri")):
+            return inner
+    return data if isinstance(data, dict) else {}
+
+
+def _media_ready_info(resp: dict) -> dict | None:
+    """Detect a finished Flow clip from get_media / check_video_status.
+
+    Ready if we have a valid MP4 in encodedVideo, or an http(s)/file URL.
+    """
+    if _is_error(resp):
+        return None
+    payload = _unwrap_media_payload(resp)
+    video = payload.get("video") if isinstance(payload.get("video"), dict) else {}
+    encoded = video.get("encodedVideo") or payload.get("encodedVideo") or ""
+    url = (
+        video.get("fifeUrl")
+        or video.get("servingUri")
+        or video.get("videoUri")
+        or payload.get("fifeUrl")
+        or payload.get("servingUri")
+        or payload.get("videoUri")
+        or ""
+    )
+    if encoded:
+        try:
+            binary = base64.b64decode(encoded)
+        except Exception:
+            binary = b""
+        if len(binary) >= 12 and binary[4:8] == b"ftyp":
+            return {"url": url, "binary": binary}
+    if isinstance(url, str) and url.startswith(("http://", "https://", "file://")):
+        return {"url": url, "binary": b""}
+    return None
+
+
+def _ready_from_status_poll(status_result: dict, media_id: str) -> dict | None:
+    """Read SUCCESSFUL + fifeUrl from batchCheckAsyncVideoGenerationStatus."""
+    if _is_error(status_result):
+        return None
+    data = status_result.get("data", status_result)
+    ops = data.get("operations", []) if isinstance(data, dict) else []
+    for op in ops:
+        if op.get("status") != "MEDIA_GENERATION_STATUS_SUCCESSFUL":
+            continue
+        video = ((op.get("operation") or {}).get("metadata") or {}).get("video") or {}
+        url = video.get("fifeUrl") or video.get("servingUri") or ""
+        mid = video.get("mediaId") or media_id
+        if url or mid:
+            return {"url": url, "binary": b"", "media_id": mid}
+    return _media_ready_info(status_result)
+
+
 async def _poll_workflows(
     client: FlowClient,
     operations: list[dict],
     timeout: int,
 ) -> dict:
-    """Poll workflow-mode operations (Low Priority). Flow returns MP4 binary
-    inline as base64 in `video.encodedVideo` — decode and save to disk, then
-    synthesize an OLD-schema success response with a file:// URL.
+    """Poll workflow-mode operations (Low Priority) until each clip is ready.
 
-    The response shape is:
-      {"name": "<media_id>", "video": {"encodedVideo": "<base64 MP4>", ...}}
-
-    Detection logic:
-    - "ready" = response is a dict with keys {"name","video"} where video.encodedVideo
-      starts with AAAAI... (MP4 ftyp header in base64)
-    - "still gen" = response missing video block, or encodedVideo missing/empty
+    A clip is done when get_media returns MP4 bytes or a signed URL, or when
+    batchCheckAsyncVideoGenerationStatus reports SUCCESSFUL. Check immediately
+    so videos already finished on Flow are picked up without waiting one interval.
     """
-    import base64
     import os as _os
 
     poll_interval = VIDEO_POLL_INTERVAL
     elapsed = 0
-    completed = {}  # media_id → local_path
+    completed = {}  # media_id → {path, url}
+    first = True
 
-    while elapsed < timeout:
-        await asyncio.sleep(poll_interval)
-        elapsed += poll_interval
+    while elapsed < timeout or first:
+        if not first:
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+        first = False
+
+        try:
+            synced = await client.sync_completed_flow_videos()
+            if synced.get("completed"):
+                logger.info("Synced %s clip(s) from Flow history", synced["completed"])
+        except Exception as e:
+            logger.debug("Flow history sync skipped: %s", e)
 
         for op in operations:
             mid = op.get("_primary_media_id", "")
             if not mid or mid in completed:
                 continue
+            wf_name = (op.get("operation") or {}).get("name", "") or mid
             media_resp = await client.get_media(mid)
-            status = media_resp.get("status")
-            if status != 200:
+            ready = _media_ready_info(media_resp)
+            if not ready:
+                status_result = await client.check_video_status([{
+                    "operation": {"name": wf_name},
+                    "status": "MEDIA_GENERATION_STATUS_PENDING",
+                }])
+                ready = _ready_from_status_poll(status_result, mid)
+            if not ready:
+                status = media_resp.get("status")
                 logger.debug("Workflow media %s not ready (status=%s)", mid[:8], status)
                 continue
 
-            # Direct top-level (not wrapped in `data`)
-            payload = media_resp.get("data", media_resp) if isinstance(media_resp.get("data"), dict) and "video" in media_resp.get("data", {}) else media_resp
-            video_block = payload.get("video", {}) if isinstance(payload, dict) else {}
-            encoded = video_block.get("encodedVideo", "") if isinstance(video_block, dict) else ""
-
-            if not encoded:
-                continue
-            try:
-                binary = base64.b64decode(encoded)
-            except Exception as e:
-                logger.warning("Workflow media %s: failed to decode encodedVideo: %s", mid[:8], e)
-                continue
-            # Validate MP4 magic: real video starts with `ftyp` box at bytes 4-8.
-            # While generating, Flow returns metadata payload (~1-2KB) — skip until real MP4.
-            is_mp4 = len(binary) >= 12 and binary[4:8] == b"ftyp"
-            if not is_mp4:
-                logger.debug("Workflow media %s still generating (got %d bytes, not MP4)",
-                             mid[:8], len(binary))
-                continue
-            out_dir = "output/_workflow_videos"
-            _os.makedirs(out_dir, exist_ok=True)
-            out_path = f"{out_dir}/{mid}.mp4"
-            with open(out_path, "wb") as f:
-                f.write(binary)
-            completed[mid] = {"path": out_path, "size": len(binary)}
-            logger.info("Workflow media %s ready: saved %d bytes → %s",
-                        mid[:8], len(binary), out_path)
+            out_url = ready.get("url") or ""
+            binary = ready.get("binary") or b""
+            if binary:
+                out_dir = "output/_workflow_videos"
+                _os.makedirs(out_dir, exist_ok=True)
+                out_path = f"{out_dir}/{mid}.mp4"
+                with open(out_path, "wb") as f:
+                    f.write(binary)
+                out_url = f"file://{_os.path.abspath(out_path)}"
+                logger.info("Workflow media %s ready: saved %d bytes → %s",
+                            mid[:8], len(binary), out_path)
+            else:
+                logger.info("Workflow media %s ready via URL (%s)", mid[:8], out_url[:80])
+            completed[mid] = {"url": out_url}
 
         if len(completed) == len(operations):
             synth_ops = []
             for op in operations:
                 mid = op.get("_primary_media_id", "")
                 wf_name = op.get("operation", {}).get("name", "")
-                local = completed.get(mid, {}).get("path", "")
-                # Use file:// so downstream sees a URL-shaped string
-                local_url = f"file://{_os.path.abspath(local)}" if local else ""
+                info = completed.get(mid, {})
                 synth_ops.append({
                     "operation": {
                         "name": wf_name,
-                        "metadata": {"video": {"mediaId": mid, "fifeUrl": local_url}},
+                        "metadata": {"video": {"mediaId": mid, "fifeUrl": info.get("url", "")}},
                     },
                     "status": "MEDIA_GENERATION_STATUS_SUCCESSFUL",
                 })
             logger.info("All %d workflow(s) completed after %ds", len(operations), elapsed)
             return {"data": {"operations": synth_ops}}
+
+        if elapsed >= timeout:
+            break
 
     logger.warning("Workflow polling timed out after %ds. Done=%d/%d",
                    timeout, len(completed), len(operations))
@@ -300,10 +356,13 @@ async def _poll_operations(
     poll_interval = VIDEO_POLL_INTERVAL
     elapsed = 0
     current_ops = operations
+    first = True
 
-    while elapsed < timeout:
-        await asyncio.sleep(poll_interval)
-        elapsed += poll_interval
+    while elapsed < timeout or first:
+        if not first:
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+        first = False
 
         status_result = await client.check_video_status(current_ops)
         if _is_error(status_result):
@@ -343,6 +402,9 @@ async def _poll_operations(
 
         done_count = sum(1 for o in ops if o.get("status") == "MEDIA_GENERATION_STATUS_SUCCESSFUL")
         logger.debug("Poll %ds/%ds: %d/%d done", elapsed, timeout, done_count, len(ops))
+
+        if elapsed >= timeout:
+            break
 
     return {"error": f"Polling timeout after {timeout}s"}
 

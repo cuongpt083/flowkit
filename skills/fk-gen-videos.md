@@ -28,7 +28,7 @@ Only scenes where `${ori}_video_status` != `"COMPLETED"` or `${ori}_video_media_
 
 ## Step 3: Submit ALL requests at once
 
-The server handles throttling automatically (max 5 concurrent, 10s cooldown). Submit everything in one batch call. Video generation takes 2-5 minutes per scene.
+The server handles throttling automatically (max 5 concurrent, 10s cooldown). Submit everything in one batch call. Veo Low Priority clips commonly take **15–30 minutes** per scene.
 
 ```bash
 curl -X POST http://127.0.0.1:8100/api/requests/batch \
@@ -43,9 +43,10 @@ curl -X POST http://127.0.0.1:8100/api/requests/batch \
 
 Build the `requests` array from ALL scenes filtered in Step 2. Do NOT manually batch or loop.
 
-Poll aggregate status every 30s until done (videos take longer):
+Poll aggregate status every **180 seconds (3 minutes)** until done. Do **not** poll more often — each `curl` costs LLM tokens and videos take 15–30 minutes.
 
 ```bash
+sleep 180
 curl -s "http://127.0.0.1:8100/api/requests/batch-status?video_id=<VID>&type=GENERATE_VIDEO"
 # Wait for: "done": true
 # If "all_succeeded": false → some failed, check individual failures
