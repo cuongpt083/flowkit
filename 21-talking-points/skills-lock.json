@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "ideas-to-prompt": {
+      "source": "/home/cuongpt/.agents/skills/ideas-to-prompt",
+      "sourceType": "local",
+      "computedHash": "0ab2408ead1b2dcb7245b6000c05552f424a1d1d2a5acdc3926bb9890c322f7b"
+    }
+  }
+}

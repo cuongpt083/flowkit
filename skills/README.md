@@ -49,6 +49,7 @@ python setup.py clean     # Remove generated configs
 | Claude Code | `.claude/commands/fk-<name>.md` (stubs) | `CLAUDE.md` (committed) | `/fk-<name>` |
 | Gemini CLI | `.gemini/commands/fk/<name>.toml` | `GEMINI.md` (generated) | `/fk-<name>` |
 | Codex CLI | — | `AGENTS.md` (generated) | Read `skills/fk-<name>.md` |
+| Antigravity 2.0 | `.agents/skills/fk-<name>/SKILL.md` + `.agents/workflows/fk-<name>.md` | `.agents/rules/flowkit.md` + `AGENTS.md` | `/fk-<name>` or auto-activate |
 
 **Adding a new skill:** Create `skills/fk-<name>.md`, then run `python setup.py sync`.
 

@@ -15,6 +15,11 @@ agent/active_project.json
 AGENTS.md
 GEMINI.md
 .fk-setup.json
+.agents/skills/
+.agents/workflows/
+.agents/rules/flowkit.md
+.agent/workflows/
+.agent/rules/flowkit.md
 
 # design-sync (staged converter scripts, build output, machine state)
 .ds-sync/

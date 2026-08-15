@@ -249,7 +249,7 @@ System generates ref image per entity → then composes scenes using those refs
 
 ### Using Skills (recommended)
 
-Skills handle all the API calls, polling, and verification automatically. Use with Claude Code (`/fk-command`) or follow the recipe in `skills/*.md` for any AI agent.
+Skills handle all the API calls, polling, and verification automatically. Use with Claude Code or Google Antigravity 2.0 (`/fk-command`) or follow the recipe in `skills/*.md` for any AI agent.
 
 ```
 /fk-create-project             ← interactive: asks story, creates entities + scenes
@@ -431,7 +431,7 @@ The worker auto-appends `"No background music. Keep only natural sound effects a
 
 ## Skills (AI Agent Workflows)
 
-Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` in Claude Code):
+Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` in Claude Code and Google Antigravity 2.0):
 
 ### Basic Pipeline
 
@@ -510,8 +510,15 @@ Skills are `.md` recipes any AI coding-assistant CLI can read and follow — thi
 | CLI | Instructions | How skills work |
 |-----|-------------|-----------------|
 | Claude Code | `CLAUDE.md` (auto-loaded) | Native `/fk-*` slash commands |
+| Antigravity 2.0 | `.agents/rules/flowkit.md` + `AGENTS.md` | Skills in `.agents/skills/` (auto-activate) + workflows `/fk-*` |
 | Codex CLI | `AGENTS.md` → reads `CLAUDE.md` | User says `/fk-<name>`, agent reads `skills/fk-<name>.md` |
 | Gemini CLI | `GEMINI.md` → reads `CLAUDE.md` | Same pattern |
+
+Generate the adapter for your tool (skills stay in `skills/` as the source of truth):
+
+```bash
+python setup.py --tool antigravity   # or claude / gemini / codex / all
+```
 
 ### AI Vision Providers (Video Review)
 
@@ -658,8 +665,9 @@ youtube/
         ├── channel_rules.json   # Upload rules + SEO defaults
         └── upload_history.json  # Upload log
 CLAUDE.md                # AI agent instructions (Claude Code)
-AGENTS.md                # AI agent instructions (Codex CLI)
+AGENTS.md                # AI agent instructions (Codex CLI / Antigravity)
 GEMINI.md                # AI agent instructions (Gemini CLI)
+.agents/                 # Antigravity 2.0 skills, workflows, rules (generated)
 ```
 
 ## TTS Narration (OmniVoice)
