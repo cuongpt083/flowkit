@@ -22,6 +22,11 @@ def _scene_to_flat(sdk_scene) -> dict:
     flat["character_names"] = sdk_scene.character_names
     flat["created_at"] = sdk_scene.created_at
     flat["updated_at"] = sdk_scene.updated_at
+    for key, val in list(flat.items()):
+        if val is None and (
+            str(key).endswith("_media_id") or str(key).endswith("_url")
+        ):
+            flat[key] = ""
     return flat
 
 

@@ -55,8 +55,18 @@ curl -s "http://127.0.0.1:8100/api/requests/batch-status?video_id=<VID>&type=GEN
 ## Step 4: Verify
 
 ```bash
-curl -s "http://127.0.0.1:8100/api/scenes?video_id=<VID>"
+curl -s "http://127.0.0.1:8100/api/scenes?video_id=<VID>" | python3 -c "
+import sys, json
+from collections import Counter
+scenes = json.load(sys.stdin)
+print('Scene video statuses:', Counter(s.get('${ori}_video_status') for s in scenes))
+for s in sorted(scenes, key=lambda x: x.get('display_order') or 0):
+    mid = s.get('${ori}_video_media_id') or ''
+    print(f\"  Scene {s.get('display_order')}: {s.get('${ori}_video_status')} mid={mid[:16]}\")
+"
 ```
+
+`*_media_id` and `*_url` may be JSON `null`. Always use `(s.get('…') or '')[:n]` — never `s.get('…', '')[:n]`.
 
 ## Step 5: Output
 

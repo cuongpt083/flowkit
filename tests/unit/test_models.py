@@ -214,3 +214,15 @@ class TestCharacterToOperationDict:
         char = Character(id="char-003", name="Test")
         d = char.to_operation_dict("proj-123")
         assert "_project_id" not in d
+
+
+class TestApiSceneMediaIdJson:
+    def test_null_media_id_serializes_to_empty_string(self):
+        from agent.models.scene import Scene as ApiScene
+
+        scene = ApiScene(id="s1", video_id="v1", display_order=1)
+        payload = json.loads(scene.model_dump_json())
+        assert payload["horizontal_video_media_id"] == ""
+        assert payload["horizontal_video_media_id"][:16] == ""
+        assert payload["horizontal_video_url"] == ""
+        assert payload["horizontal_video_url"][:40] == ""

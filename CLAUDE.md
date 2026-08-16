@@ -14,7 +14,7 @@ curl -s http://127.0.0.1:8100/health
 - Always use `/fk-*` skills — all rules and workflows live inside each skill
 - Never write scripts to loop API calls — use `POST /api/requests/batch`
 - When waiting for **video** generation, poll `GET /api/requests/batch-status` at most every **180 seconds** (`sleep 180`). Clips take 15–30 minutes. Do not poll every few seconds.
-- `media_id` is always UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`), never `CAMS...` strings
+- `media_id` is always UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`), never `CAMS...` strings. Missing ids/urls may be JSON `null` — use `(s.get("horizontal_video_url") or "")[:40]`, never `s.get(..., "")[:n]`.
 - **On any pipeline error** (request `FAILED`, stuck `PROCESSING`, `extension_connected: false`, HTTP 4xx/5xx from `:8100`, YouTube `HttpError`, error strings like `UNSAFE_GENERATION` / `not found` / `CAPTCHA` / `NO_FLOW_KEY`): invoke `/fk-doctor` before guessing a fix
 
 ## Skills

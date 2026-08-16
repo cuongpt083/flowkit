@@ -1,6 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from typing import Optional
 from agent.models.enums import ChainType, SceneSource, StatusType
+
+# JSON null + s.get(key, "")[:n] crashes (default is skipped when key exists).
+_NULL_SAFE_STRING_FIELDS = (
+    "vertical_image_media_id",
+    "vertical_video_media_id",
+    "vertical_upscale_media_id",
+    "horizontal_image_media_id",
+    "horizontal_video_media_id",
+    "horizontal_upscale_media_id",
+    "vertical_end_scene_media_id",
+    "horizontal_end_scene_media_id",
+    "vertical_image_url",
+    "vertical_video_url",
+    "vertical_upscale_url",
+    "horizontal_image_url",
+    "horizontal_video_url",
+    "horizontal_upscale_url",
+)
 
 
 class SceneCreate(BaseModel):
@@ -101,3 +119,7 @@ class Scene(BaseModel):
 
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+    @field_serializer(*_NULL_SAFE_STRING_FIELDS)
+    def _serialize_optional_text(self, value: Optional[str]) -> str:
+        return value or ""

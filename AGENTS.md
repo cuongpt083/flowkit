@@ -13,7 +13,7 @@ curl -s http://127.0.0.1:8100/health
 
 ## Critical Rules (MUST follow)
 
-1. **Media ID is always UUID** — format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. Never use `CAMS...` / base64 strings.
+1. **Media ID is always UUID** — format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. Never use `CAMS...` / base64 strings. JSON may send `null` for missing ids/urls — slice with `(s.get("horizontal_video_media_id") or "")[:16]`, never `s.get(..., "")[:16]`.
 2. **Scene prompts = ACTION only** — never describe character appearance. Reference images handle visual consistency via `imageInputs`.
 3. **All reference images must exist before scene images** — verify every entity has `media_id` before generating scene images.
 4. **No throwaway scripts** — NEVER write Python, shell, or any script file to loop over API requests. Use `POST /api/requests/batch` to submit all requests at once, then poll `GET /api/requests/batch-status`. The server throttles automatically.
