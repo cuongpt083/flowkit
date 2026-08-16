@@ -213,13 +213,14 @@ for key, label, curr, total in STAGES:
     elif (m := milestone_crossed(prev, curr, total)):
         notifications.append(f'🔄 {label}: {curr}/{total}')
 
-# Worker stall detection
+# Worker stall: only when nothing is processing. PENDING + PROCESSING is normal
+# (video poll windows are 15–30 min; traffic hold parks new submits).
 if (snapshot['pending_count'] > 0
         and snapshot['processing_count'] == 0
-        and time.time() - last_change_ts > 120):
+        and time.time() - last_change_ts > 900):
     notifications.append(
-        f'⚠️ Worker stalled! {snapshot["pending_count"]} requests pending but 0 processing.\n'
-        f'Check server logs — may need to restart the GLA server.'
+        f'⚠️ No PROCESSING jobs for 15m with {snapshot["pending_count"]} PENDING.\n'
+        f'Check FAILED for TOO_MUCH_TRAFFIC / UNUSUAL_ACTIVITY. Do not restart if /health is ok.'
     )
 
 # New failures

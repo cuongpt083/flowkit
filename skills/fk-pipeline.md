@@ -214,13 +214,15 @@ Batch 5 at a time. Poll every 15s. Submit next batch when current batch complete
 
 Only run after all scene images COMPLETED.
 
+First list existing requests (`GET /api/requests?video_id=<VID>`). Skip any scene that already has PENDING or PROCESSING `GENERATE_VIDEO`.
+
 ```bash
-curl -X POST http://127.0.0.1:8100/api/requests \
+curl -X POST http://127.0.0.1:8100/api/requests/batch \
   -H "Content-Type: application/json" \
-  -d '{"type":"GENERATE_VIDEO","scene_id":"<SID>","project_id":"<PID>","video_id":"<VID>","orientation":"<ORIENTATION>"}'
+  -d '{"requests":[{"type":"GENERATE_VIDEO","scene_id":"<SID>","project_id":"<PID>","video_id":"<VID>","orientation":"<ORIENTATION>"}]}'
 ```
 
-Batch 5. Poll every **180s (3 minutes)**. Each Low Priority clip commonly takes 15–30 minutes. Do not poll every few seconds.
+Submit only missing scenes, once. Poll every **180s (3 minutes)**. Each Low Priority clip commonly takes 15–30 minutes. Do not poll every few seconds. Do not restart the agent because some rows stay PENDING while others are PROCESSING.
 
 ---
 
@@ -398,12 +400,12 @@ while stages_to_run:
 |---|---|---|
 | Ref image FAILED | `media_id` missing after request COMPLETED | Resubmit `GENERATE_CHARACTER_IMAGE` once |
 | Scene image FAILED | `horizontal_image_status == FAILED` | Resubmit `REGENERATE_IMAGE` once |
-| Video FAILED | `horizontal_video_status == FAILED` | Resubmit `GENERATE_VIDEO` once |
+| Video FAILED | `horizontal_video_status == FAILED` | Read `error_message`. If `UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC`, wait ≥15 min — do not add a new request. Otherwise resubmit **one** `GENERATE_VIDEO` only if that scene has no PENDING/PROCESSING row |
 | Review FAILED (score < 7.5) | `total_score < 7.5` in review results | Update `video_prompt` from `fix_guide` + `errors`, regen video (max 2 cycles) |
 | Review UNUSABLE (score < 4.0) | `total_score < 4.0` in review results | Update `video_prompt`, regen image first (`REGENERATE_IMAGE`), then video |
 | Upscale FAILED | `horizontal_upscale_status == FAILED` | Resubmit `UPSCALE_VIDEO` once |
 | Download 4KB (XML error) | `ffprobe` returns 0s or non-numeric | Re-download (URL still valid for ~8h) |
-| Worker stalled | pending > 0, processing = 0 for 2+ min | Print warning; suggest server restart |
+| Worker stalled | pending > 0 **and** processing = 0 for **15+ min**, and `/health` extension is connected | Check FAILED for `TOO_MUCH_TRAFFIC`. If processing > 0, worker is fine — extra PENDING is queued or held. **Do not restart** the agent to unstick video PENDING |
 | TTS no template | `GET /api/tts/templates` returns empty | Pause; prompt user to create template |
 
 **Max retries:** 2 per scene per stage. After 2 failures, log and skip — report at end.
@@ -477,7 +479,7 @@ Cycle 12 / next poll in 180s...
 | Upscale TIER_ONE error | Account is TIER_ONE — skip `--upscale` |
 | Downloads 4KB XML error | Write URL to temp file, re-curl |
 | TTS `torch not found` | Set `TTS_PYTHON_BIN=/opt/homebrew/bin/python3.10` in server env |
-| Worker stalled | POST http://127.0.0.1:8100/api/worker/restart or restart server |
+| Worker stalled | If `processing > 0`, do nothing (poller occupies slots). If `TOO_MUCH_TRAFFIC`, wait 15 min. Restart only when `/health` is down or extension_connected is false |
 
 ---
 

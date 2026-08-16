@@ -291,6 +291,7 @@ _CRITICAL_RULES = """\
 11. **Video prompts use sub-clip timing** — structure 8s video as time segments: `0-3s: [action]. 3-6s: [action]. 6-8s: [action].`
 12. **Character dialogue in sub-clips** — embed speech in quotes: `Luna says "Goodnight."` Max 10-15 words per character per 2-3s segment.
 13. **Scenes are mutable** — use `PATCH /api/scenes/{sid}` to update `prompt`, `video_prompt`, `narrator_text`, `character_names` after creation. Don't delete and recreate — patch instead.
+14. **Never duplicate in-flight videos** — before `GENERATE_VIDEO`, `GET /api/requests?video_id=<VID>`. Skip any `scene_id` that already has PENDING or PROCESSING (especially if `request_id` or `media_id` is set — worker is polling Flow). Do not POST a second request. Do not restart the agent to "unstick" PENDING while `processing > 0` or the error is `UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC` — wait and poll `/batch-status` every 180s.
 """
 
 _PIPELINE_OVERVIEW = """\
@@ -306,7 +307,7 @@ _PIPELINE_OVERVIEW = """\
 6. Gen scene images  POST /api/requests/batch → poll /batch-status?video_id=<VID>
                      Wait for done=true, verify image_media_id = UUID
 7. Gen videos        POST /api/requests/batch → poll /batch-status?video_id=<VID>
-                     Wait for done=true (videos take 2-5 min each)
+                     Wait for done=true (Low Priority clips take 15–30 min; poll every 180s)
 8. (Optional) 4K     POST /api/requests/batch (TIER_TWO only)
 9. (Optional) TTS    Create voice template → POST /api/videos/{vid}/narrate
 10. Concat           ffmpeg normalize + concat

@@ -24,11 +24,21 @@ If `GET /api/projects/<PID>` has `"render_mode": "motion"`, still submit `GENERA
 
 ## Step 2: Filter scenes needing video
 
-Only scenes where `${ori}_video_status` != `"COMPLETED"` or `${ori}_video_media_id` is missing.
+Only scenes where `${ori}_video_status` != `"COMPLETED"` **and** there is not already an in-flight request.
 
-## Step 3: Submit ALL requests at once
+```bash
+curl -s "http://127.0.0.1:8100/api/requests?video_id=<VID>"
+```
 
-The server handles throttling automatically (max 5 concurrent, 10s cooldown). Submit everything in one batch call. Veo Low Priority clips commonly take **15–30 minutes** per scene.
+**Do not submit** `GENERATE_VIDEO` for a `scene_id` if any existing request of type `GENERATE_VIDEO` / `REGENERATE_VIDEO` / `GENERATE_VIDEO_REFS` is `PENDING` or `PROCESSING`.
+
+- `PROCESSING` or `PENDING` **with** `request_id` or `media_id` → worker is polling Flow. Wait. Poll `/batch-status` every 180s.
+- `PENDING` with `request_id` null **and** another row for the same scene is `PROCESSING` → that PENDING is a **duplicate**. Do not add a third. Do not restart the agent.
+- Scene `video_status=PENDING` while a request is `PROCESSING` is normal (scene updates only on COMPLETED).
+
+## Step 3: Submit ALL remaining requests at once
+
+The server handles throttling automatically (max 5 concurrent, 10s cooldown). Submit only scenes that passed Step 2. Veo Low Priority clips commonly take **15–30 minutes** per scene.
 
 ```bash
 curl -X POST http://127.0.0.1:8100/api/requests/batch \
@@ -78,7 +88,9 @@ Print: "All videos ready. Run /fk-concat <VID> to download and merge."
 
 ## Important rules
 
-- **GENERATE vs REGENERATE:** `GENERATE_VIDEO` skips scenes already `COMPLETED`. To force-regenerate, reset `${ori}_video_status` to `PENDING` first, then submit.
+- **GENERATE vs REGENERATE:** `GENERATE_VIDEO` skips scenes already `COMPLETED`. To force-regenerate, reset `${ori}_video_status` to `PENDING` first, then submit. Never create a second request while one is still PENDING/PROCESSING.
+- **UNUSUAL_ACTIVITY / TOO_MUCH_TRAFFIC:** stop new `GENERATE_VIDEO` submits. Wait at least 15 minutes. Do not restart the agent to force pickup. Job rows already submitted (`request_id` set) may still complete.
+- **PENDING ≠ worker dead:** if `/health` shows `extension_connected: true` and any video request is `PROCESSING`, the worker is running. Extra PENDING rows without `request_id` are waiting for a free slot or a traffic hold.
 - **Cascade on regen:** Regenerating a video auto-clears the upscale status for that scene.
 - **Chain video prompt rule (CRITICAL):** Chain scenes with children use `transition_prompt` for video generation, NOT `video_prompt`. This is because the video transitions from the current scene's image to the child scene's image. When fixing chain scene videos, always update `transition_prompt`. `video_prompt` is only used for ROOT scenes or leaf scenes (no children).
 - **Chain cascade (CRITICAL):** When regenerating a scene that has CONTINUATION children, you MUST also regenerate images + videos for all descendants in the chain. The child's image was EDIT_IMAGE'd from the parent's old image — if the parent's video changes, the child's start frame won't match the parent's end frame.
