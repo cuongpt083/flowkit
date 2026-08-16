@@ -19,14 +19,31 @@ Sort scenes by `display_order`.
 ## Step 2: Determine video source for each scene
 
 Priority order for each scene:
-1. **Local 4K file:** `${OUTDIR}/4k/scene_${IDX3}_${scene_id}.mp4` then `${OUTDIR}/4k/{scene_id}.mp4`
+1. **Local 4K file** that `ffprobe` accepts and is **> 10KB**: `${OUTDIR}/4k/scene_${IDX3}_${scene_id}.mp4` then `${OUTDIR}/4k/{scene_id}.mp4`. A 111–400 byte file is a saved 403 body — delete it and treat as missing.
 2. **Motion clip:** `${OUTDIR}/motion/scene_${IDX3}_${scene_id}.mp4` (`render_mode=motion`)
-3. **Upscale URL:** `horizontal_upscale_url` or `vertical_upscale_url` (4K signed URL — may be expired)
-4. **Video URL:** `horizontal_video_url` or `vertical_video_url` (standard quality; may be `file://` for motion)
+3. **Signed URL** (`Expires=` in the future) on `horizontal_upscale_url` / `horizontal_video_url` (or vertical)
+4. If the only URL is unsigned or `Expires=` is past → **do not curl it**. Refresh first (below).
 
 Check orientation from project or first scene. Use matching prefix (`horizontal_` or `vertical_`).
 
-**ABORT** if any scene has no video source. Tell user to run `/fk-gen-videos` first.
+### Step 2b: Refresh expired / unsigned URLs
+
+If any scene still needs a file and its URL is unsigned or expired:
+
+```bash
+# Flow project tab must be open
+curl -sS -X POST "http://127.0.0.1:8100/api/flow/refresh-urls/<PID>"
+# Re-read scenes; only curl URLs that now contain Expires= and are in the future
+curl -s "http://127.0.0.1:8100/api/scenes?video_id=<VID>"
+```
+
+If refresh returns `found: 0`, ask the user to reload the Flow Kit extension, open the project tab, scroll the board, then retry refresh. Do **not** tell them every URL is dead if the tab still plays the clips.
+
+**ABORT** if any scene has no video source (no local file **and** no `*_video_url` / `*_upscale_url`). Tell the user to run `/fk-gen-videos` first.
+
+A missing file under `output/.../4k/scene_*.mp4` is **not** a failed generation. Download it in Step 4. Do **not** treat “file missing or &lt; 1000 bytes” as “submit `GENERATE_VIDEO` again”.
+
+**Do not** start video generation from `/fk-concat`. Do not write `/tmp/regen_batch.json`. Do not `python3 -c "..." > /tmp/*.json` (that mixes `print()` text with JSON and then `json.load` fails). Concat only downloads + merges clips that already exist.
 
 ## Step 3: Setup output directory
 
@@ -46,17 +63,22 @@ IDX3=$(printf "%03d" $DISPLAY_ORDER)
 CANONICAL="${OUTDIR}/4k/scene_${IDX3}_${SCENE_ID}.mp4"
 LEGACY="${OUTDIR}/4k/${SCENE_ID}.mp4"
 
-# For each scene, check local canonical name first, then legacy name
+# Skip / replace tiny 403 bodies
+if [ -f "$CANONICAL" ] && [ "$(wc -c < "$CANONICAL")" -lt 10000 ]; then
+  rm -f "$CANONICAL"
+fi
+
 if [ -f "$CANONICAL" ]; then
   : # already present, skip download
-elif [ -f "$LEGACY" ]; then
+elif [ -f "$LEGACY" ] && [ "$(wc -c < "$LEGACY")" -gt 10000 ]; then
   cp "$LEGACY" "$CANONICAL"
 else
-  curl -L -o "$CANONICAL" "${UPSCALE_URL_OR_VIDEO_URL}"
+  # Only signed URLs (must contain Expires=)
+  curl -L --fail -o "$CANONICAL" "${SIGNED_VIDEO_URL}"
 fi
 ```
 
-Verify each download: `ffprobe` should return valid video stream.
+After each download: `ffprobe` must show a video stream. If it fails, delete the file (it is probably a 403 HTML/XML body).
 
 ## Step 5: Determine output resolution
 
@@ -168,4 +190,8 @@ Concat complete: <project_name>
 | TTS not audible | TTS wav not mixed, only video audio used | Use `amix` filter with `-filter_complex` |
 | Video is 1080p not 4K | Normalize used wrong scale | Match source resolution, never downscale |
 | Signed URL expired | GCS URLs have ~8h TTL | Check local `${OUTDIR}/4k/` files first |
+| `curl` 403 on `flow-content.google` | URL is unsigned (`/video/<uuid>` only) or `Expires=` is in the past. The Flow **tab** still plays because the page fetches a new signed URL with cookies | Do not regenerate. Use a local file if size &gt; 10KB. Open the Flow project tab, `POST /api/flow/refresh-urls/<PID>`, then download. Never treat a 111–400 byte "mp4" (XML/HTML 403 body) as a clip |
 | Scene order wrong | Not sorted by display_order | Sort scenes before processing |
+| `json.load('/tmp/regen_batch.json')` / `JSONDecodeError` | Script printed `Pending: N` then JSON into the same file, or used `echo`/`\"` inside `python3 -c` | Not part of this skill. Abort concat. Download missing files from scene URLs. Run `/fk-gen-videos` only if the scene has no URL and no COMPLETED request |
+| `SyntaxError: unexpected character after line continuation` in `python3 -c` | Nested `\"` inside a single-quoted `-c` string (`open(\"/tmp/...\")`) | Do not nest `python3 -c` inside `echo $(...)`. Use `json.dump` only, or skip the temp file |
+| Missing `output/.../4k/*.mp4` | File never downloaded | Step 4 `curl` the scene URL. Do not `GENERATE_VIDEO` |

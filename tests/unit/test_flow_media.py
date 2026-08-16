@@ -144,3 +144,4 @@ def test_extract_project_board_clips():
     assert clips[0]["duration8"] is True
     assert clips[0]["title"].startswith("Woman speaking passionately")
     assert clips[0]["mediaId"] == mid
+    assert clips[0]["url"] is None

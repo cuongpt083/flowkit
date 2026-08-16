@@ -12,7 +12,7 @@ curl -s http://127.0.0.1:8100/health
 ## How to work
 
 - Always use `/fk-*` skills — all rules and workflows live inside each skill
-- Never write scripts to loop API calls — use `POST /api/requests/batch`
+- Never write scripts to loop API calls — use `POST /api/requests/batch`. Do not `echo` JSON into `/tmp/*.json`. Do not mix `print()` and `json.dumps` in one redirect (invalid JSON). Do not nest `python3 -c` with `\"` inside single quotes. `/fk-concat` must not generate videos. Missing `output/.../4k/*.mp4` means download, not `GENERATE_VIDEO`.
 - When waiting for **video** generation, poll `GET /api/requests/batch-status` at most every **180 seconds** (`sleep 180`). Clips take 15–30 minutes. Do not poll every few seconds.
 - **Do not duplicate in-flight videos.** `GET /api/requests?video_id=<VID>` first. If a scene already has PENDING/PROCESSING (especially with `request_id`/`media_id`), do not POST another `GENERATE_VIDEO`. Do not restart the agent to "unstick" PENDING while `processing > 0` or on `UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC` — wait.
 - `media_id` is always UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`), never `CAMS...` strings. Missing ids/urls may be JSON `null` — use `(s.get("horizontal_video_url") or "")[:40]`, never `s.get(..., "")[:n]`.

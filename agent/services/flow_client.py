@@ -100,7 +100,8 @@ def _extract_project_board_clips(resp: dict) -> list[dict]:
             "duration8": length.startswith("8") or bool(blob),
             "mediaId": mid or None,
             "workflowId": media.get("workflowId"),
-            "url": f"https://flow-content.google/video/{mid}" if mid else None,
+            # Unsigned CDN paths 403 outside the Flow tab — never invent them.
+            "url": None,
             "completed": True,
             "hasVideo": True,
         })
@@ -509,11 +510,19 @@ class FlowClient:
         the extension when the user opens the project in Chrome.
         The video reviewer falls back to get_media content directly.
         """
-        logger.info("URL refresh requested for project %s — TRPC endpoint no longer available, "
-                     "use extension passive intercept (open project in Chrome)", project_id[:12])
-        return {"refreshed": 0, "found": 0, "note": "TRPC endpoint unavailable. "
-                "Video reviewer uses get_media fallback automatically. "
-                "For URL refresh, open the project in Google Flow in Chrome."}
+        board = await self.scrape_flow_tab()
+        signed = [
+            e for e in (board.get("entries") or [])
+            if isinstance(e.get("url"), str) and "Expires=" in e["url"]
+        ]
+        return {
+            "refreshed": board.get("signed", len(signed)),
+            "found": len(board.get("entries") or []),
+            "video_els": board.get("video_els"),
+            "cdn_hits": board.get("cdn_hits"),
+            "samples": [(u or "")[:160] for u in (board.get("raw_urls") or [])[:15]],
+            "note": "Refreshed from the open Flow tab. Scroll the project board and retry if some URLs stay unsigned.",
+        }
 
     async def _send(self, method: str, params: dict, timeout: float = 300) -> dict:
         """Send request to extension and wait for response.
@@ -1080,15 +1089,22 @@ class FlowClient:
                 break
         return {"matched": matched, "completed": completed, "workflows": len(workflows)}
 
+    async def download_url(self, url: str) -> dict:
+        """Fetch a Flow CDN URL through the extension (cookies + referer)."""
+        if not url or not url.startswith("https://"):
+            return {"error": "invalid url", "status": 400}
+        return await self._send("download_url", {"url": url}, timeout=60)
+
     async def scrape_flow_tab(self) -> dict:
         """Harvest signed video URLs and board card titles from the open Flow tab."""
-        result = await self._send("scrape_flow_media", {}, timeout=20)
+        result = await self._send("scrape_flow_media", {}, timeout=90)
         data = result.get("data") if isinstance(result.get("data"), dict) else {}
         urls = data.get("urls") or []
         clips = data.get("clips") or []
+        signed_n = sum(1 for u in urls if isinstance(u, str) and "Expires=" in u)
         logger.info(
-            "Scraped Flow tab href=%s videoEls=%s urls=%s cards=%s exact=%s err=%s",
-            data.get("href"), data.get("videoEls"), len(urls),
+            "Scraped Flow tab href=%s videoEls=%s urls=%s signed=%s cards=%s exact=%s err=%s",
+            data.get("href"), data.get("videoEls"), len(urls), signed_n,
             data.get("cardCount"), data.get("exactTitle"), result.get("error"),
         )
         if clips:
@@ -1097,11 +1113,21 @@ class FlowClient:
                 [c.get("title") for c in clips[:20]],
             )
         entries = self._entries_from_urls(urls)
+        signed = [
+            e for e in entries
+            if isinstance(e.get("url"), str) and "Expires=" in e["url"]
+        ]
+        if signed:
+            await self._refresh_media_urls(signed)
         return {
             "entries": entries,
             "clips": clips,
             "exactTitle": data.get("exactTitle") or [],
             "href": data.get("href"),
+            "signed": len(signed),
+            "raw_urls": urls[:30],
+            "video_els": data.get("videoEls"),
+            "cdn_hits": data.get("cdnHits"),
         }
 
     def _entries_from_urls(self, urls: list) -> list[dict]:

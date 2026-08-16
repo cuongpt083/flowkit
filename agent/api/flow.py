@@ -141,6 +141,34 @@ async def check_status(body: CheckStatusRequest):
     return result.get("data", result)
 
 
+class DownloadUrlRequest(BaseModel):
+    url: str
+
+
+@router.post("/download-url")
+async def download_url(body: DownloadUrlRequest):
+    """Download a Flow CDN URL via the extension and return raw metadata + path."""
+    client = get_flow_client()
+    if not client.connected:
+        raise HTTPException(503, "Extension not connected")
+    allowed = (
+        body.url.startswith("https://flow-content.google/")
+        or body.url.startswith("https://storage.googleapis.com/")
+        or body.url.startswith("https://lh3.googleusercontent.com/")
+    )
+    if not allowed:
+        raise HTTPException(400, "URL host not allowed")
+    result = await client.download_url(body.url)
+    if result.get("error"):
+        raise HTTPException(502, result["error"])
+    return {
+        "status": result.get("status"),
+        "size": result.get("size"),
+        "contentType": result.get("contentType"),
+        "bytes": result.get("bytes"),
+    }
+
+
 @router.post("/refresh-urls/{project_id}")
 async def refresh_project_urls(project_id: str):
     """Bulk refresh all media URLs for a project via per-media get_media calls."""

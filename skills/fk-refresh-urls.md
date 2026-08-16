@@ -27,7 +27,9 @@ echo "Project: $PID"
 
 ## Step 2: Bulk refresh via TRPC
 
-This calls Google Flow's TRPC `flow.getFlow` endpoint, extracts ALL fresh signed URLs from the response, and updates scenes + characters in DB.
+This asks the Flow Kit extension to scrape the **open Flow project tab** (scrolls the board, harvests `flow-content.google/video/<uuid>?Expires=...` URLs) and writes them onto matching `*_media_id` rows.
+
+The Flow tab must be open on this project. Unsigned `/video/<uuid>` paths 403 when `curl`ed; only signed `Expires=` URLs work outside Chrome.
 
 ```bash
 curl -s -X POST "http://127.0.0.1:8100/api/flow/refresh-urls/${PID}" | python3 -c "

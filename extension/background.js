@@ -83,8 +83,28 @@ async function init() {
 
 // ─── Token Capture ──────────────────────────────────────────
 
+const _cdnUrlHits = [];
+function _rememberCdnUrl(url) {
+  if (typeof url !== 'string' || !url.startsWith('http')) return;
+  if (!/flow-content\.google|storage\.googleapis\.com|lh3\.googleusercontent\.com/i.test(url)) return;
+  if (_cdnUrlHits.includes(url)) return;
+  _cdnUrlHits.push(url);
+  if (_cdnUrlHits.length > 400) _cdnUrlHits.splice(0, _cdnUrlHits.length - 400);
+}
+
+chrome.webRequest.onBeforeRequest.addListener((details) => {
+  _rememberCdnUrl(details.url);
+}, { urls: [
+  'https://flow-content.google/*',
+  'https://storage.googleapis.com/*',
+  'https://lh3.googleusercontent.com/*',
+  'https://labs.google/*',
+  'https://aisandbox-pa.googleapis.com/*',
+] });
+
 // Re-fetch completed TRPC/media GETs in the SW (page fetch hooks miss some SPA/XHR paths).
 chrome.webRequest.onCompleted.addListener((details) => {
+  _rememberCdnUrl(details.url);
   if (details.tabId < 0 || details.statusCode !== 200) return;
   const url = details.url || '';
   const interesting =
@@ -225,6 +245,8 @@ function connectToAgent() {
         await handleTrpcRequest(msg);
       } else if (msg.method === 'scrape_flow_media') {
         await handleScrapeFlowMedia(msg);
+      } else if (msg.method === 'download_url') {
+        await handleDownloadUrl(msg);
       } else if (msg.method === 'solve_captcha') {
         await handleSolveCaptcha(msg);
       } else if (msg.method === 'get_status') {
@@ -632,6 +654,34 @@ chrome.runtime.onMessage.addListener((msg, _, reply) => {
 
 // ─── TRPC Media URL Extractor ──────────────────────────────
 
+async function handleDownloadUrl(msg) {
+  const { id, params } = msg;
+  const url = params?.url || '';
+  if (!/^https:\/\/(flow-content\.google|storage\.googleapis\.com|lh3\.googleusercontent\.com)\//.test(url)) {
+    sendToAgent({ id, error: 'INVALID_URL' });
+    return;
+  }
+  try {
+    const resp = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    sendToAgent({
+      id,
+      status: resp.status,
+      size: bytes.length,
+      contentType: resp.headers.get('content-type'),
+      bytes: btoa(binary),
+    });
+  } catch (e) {
+    sendToAgent({ id, error: e.message || 'DOWNLOAD_FAILED' });
+  }
+}
+
 async function handleScrapeFlowMedia(msg) {
   const { id } = msg;
   const tabs = await chrome.tabs.query({
@@ -644,80 +694,71 @@ async function handleScrapeFlowMedia(msg) {
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tabs[0].id },
-      func: () => {
+      world: 'MAIN',
+      func: async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const found = [];
         const add = (u) => {
           if (typeof u === 'string' && u.startsWith('http') && !found.includes(u)) found.push(u);
         };
-        document.querySelectorAll('video, source, img, a').forEach((el) => {
-          add(el.currentSrc);
-          add(el.src);
-          add(el.poster);
-          add(el.href);
-        });
-        try {
-          performance.getEntriesByType('resource').forEach((e) => add(e.name));
-        } catch {}
-        const html = document.documentElement ? document.documentElement.innerHTML : '';
-        const re = /https:\/\/(?:flow-content\.google|storage\.googleapis\.com|lh3\.googleusercontent\.com)[^"'\\\s<>]+/g;
-        let m;
-        while ((m = re.exec(html))) add(m[0].replace(/&amp;/g, '&'));
-
-        const xpAll = (path, root) => {
-          const out = [];
-          try {
-            const snap = document.evaluate(
-              path, root || document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null,
-            );
-            for (let i = 0; i < snap.snapshotLength; i++) out.push(snap.snapshotItem(i));
-          } catch {}
-          return out;
-        };
-        const TITLE_XPATH = '/html/body/div[1]/div[1]/div[4]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div/div/span/div/div/div/div/span/div/div/div[1]/div[1]/div/div';
-        const CARD_XPATH = '/html/body/div[1]/div[1]/div[4]/div[2]/div/div/div/div[2]/div[1]/div/div';
-        const isEightSec = (text) => /(?:0:08|00:08|\b8s\b|\b8 sec|\b8 seconds|\b8 giây)/i.test(text || '');
-        const cards = xpAll(CARD_XPATH);
-        const clips = cards.map((card, i) => {
-          const text = (card.innerText || '').replace(/\u00a0/g, ' ').trim();
-          const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
-          const video = card.querySelector('video');
-          const cardUrls = [];
-          card.querySelectorAll('video, source, img').forEach((el) => {
-            const u = el.currentSrc || el.src || el.poster;
-            if (u && String(u).startsWith('http')) cardUrls.push(u);
+        const harvest = () => {
+          document.querySelectorAll('video, source, img, a').forEach((el) => {
+            add(el.currentSrc);
+            add(el.src);
+            add(el.poster);
+            add(el.href);
           });
-          const htmlCard = card.innerHTML || '';
-          let hm;
-          const hrefRe = /https:\/\/(?:flow-content\.google|storage\.googleapis\.com|lh3\.googleusercontent\.com)[^"'\\\s<>]+/g;
-          while ((hm = hrefRe.exec(htmlCard))) cardUrls.push(hm[0].replace(/&amp;/g, '&'));
-          return {
-            index: i + 1,
-            title: lines[0] || '',
-            lines: lines.slice(0, 10),
-            duration8: isEightSec(text),
-            hasVideo: !!video,
-            videoSrc: video ? (video.currentSrc || video.src || '') : '',
-            urls: [...new Set(cardUrls)].slice(0, 8),
-          };
-        });
-        const exactTitle = xpAll(TITLE_XPATH)
-          .map((el) => (el.innerText || '').trim())
+          try {
+            performance.getEntriesByType('resource').forEach((e) => add(e.name));
+          } catch {}
+          const html = document.documentElement ? document.documentElement.innerHTML : '';
+          const re = /https:\/\/(?:flow-content\.google|storage\.googleapis\.com|lh3\.googleusercontent\.com)[^"'\\\s<>]+/g;
+          let m;
+          while ((m = re.exec(html))) add(m[0].replace(/&amp;/g, '&'));
+        };
+        const scrollers = [document.scrollingElement, document.documentElement, document.body]
           .filter(Boolean);
-
+        document.querySelectorAll('div, main, section').forEach((el) => {
+          const st = getComputedStyle(el);
+          const canY = /(auto|scroll)/.test(st.overflowY) || /(auto|scroll)/.test(st.overflow);
+          if (canY && el.scrollHeight > el.clientHeight + 80) scrollers.push(el);
+        });
+        harvest();
+        const clickables = document.querySelectorAll('video, img');
+        for (let i = 0; i < Math.min(clickables.length, 80); i++) {
+          try { clickables[i].click(); } catch {}
+        }
+        for (const root of scrollers.slice(0, 8)) {
+          const step = Math.max(400, Math.floor((root.clientHeight || window.innerHeight) * 0.8));
+          const maxY = Math.max(0, (root.scrollHeight || 0) - (root.clientHeight || 0));
+          for (let y = 0; y <= maxY + step; y += step) {
+            try { root.scrollTop = y; } catch {}
+            await sleep(280);
+            harvest();
+            document.querySelectorAll('video').forEach((v) => add(v.currentSrc || v.src));
+          }
+        }
+        const urls = found.filter((u) =>
+          /flow-content\.google|videofx|googleusercontent|\/video\/|\/image\/|\.mp4/i.test(u)
+        );
         return {
           href: location.href,
           title: document.title,
           videoEls: document.querySelectorAll('video').length,
-          urls: found.filter((u) =>
-            /flow-content\.google|videofx|googleusercontent|\/video\/|\/image\/|\.mp4/i.test(u)
-          ).slice(0, 80),
-          clips,
-          exactTitle,
-          cardCount: cards.length,
+          urls: urls.slice(0, 300),
+          clips: [],
+          exactTitle: [],
+          cardCount: 0,
         };
       },
     });
     const data = results?.[0]?.result || { urls: [] };
+    const merged = [...(data.urls || [])];
+    for (const u of _cdnUrlHits) {
+      if (!merged.includes(u)) merged.push(u);
+    }
+    data.urls = merged.slice(0, 400);
+    data.cdnHits = _cdnUrlHits.length;
     sendToAgent({ id, status: 200, data });
   } catch (e) {
     sendToAgent({ id, error: e.message || 'SCRAPE_FAILED', data: { urls: [] } });

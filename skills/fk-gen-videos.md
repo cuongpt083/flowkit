@@ -53,6 +53,22 @@ curl -X POST http://127.0.0.1:8100/api/requests/batch \
 
 Build the `requests` array from ALL scenes filtered in Step 2. Do NOT manually batch or loop.
 
+**Do not** decide “needs GENERATE_VIDEO” from a missing `output/.../4k/scene_*.mp4`. That file is created at concat/download time. A COMPLETED scene with a URL only needs download.
+
+**Do not** write `/tmp/regen_batch.json` by redirecting a script that also `print`s diagnostics. If you POST a batch, pipe **only** JSON:
+
+```bash
+python3 -c '
+import json, sys
+reqs = [...]  # from Step 2 only
+json.dump({"requests": reqs}, sys.stdout)
+' | curl -sS -X POST http://127.0.0.1:8100/api/requests/batch \
+  -H "Content-Type: application/json" --data-binary @-
+```
+
+Never: `print(...); print(json.dumps(...)) > /tmp/foo.json`  
+Never: `echo "$(python3 -c 'print(len(json.load(open(\"/tmp/foo.json\"))))')"`
+
 Poll aggregate status every **180 seconds (3 minutes)** until done. Do **not** poll more often — each `curl` costs LLM tokens and videos take 15–30 minutes.
 
 ```bash

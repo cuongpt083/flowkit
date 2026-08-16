@@ -281,7 +281,7 @@ _CRITICAL_RULES = """\
 1. **Media ID is always UUID** — format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. Never use `CAMS...` / base64 strings. JSON may send `null` for missing ids/urls — slice with `(s.get("horizontal_video_media_id") or "")[:16]`, never `s.get(..., "")[:16]`.
 2. **Scene prompts = ACTION only** — never describe character appearance. Reference images handle visual consistency via `imageInputs`.
 3. **All reference images must exist before scene images** — verify every entity has `media_id` before generating scene images.
-4. **No throwaway scripts** — NEVER write Python, shell, or any script file to loop over API requests. Use `POST /api/requests/batch` to submit all requests at once, then poll `GET /api/requests/batch-status`. The server throttles automatically.
+4. **No throwaway scripts** — NEVER write Python, shell, or any script file to loop over API requests. Use `POST /api/requests/batch` to submit all requests at once, then poll `GET /api/requests/batch-status`. The server throttles automatically. Do not `echo` JSON into `/tmp/*.json`. Do not redirect a script that `print`s logs **and** `json.dumps` into the same `.json` file (`Pending: N` + payload → `JSONDecodeError`). Do not nest `python3 -c` with `\"` inside single quotes (`open(\"/tmp/...\")` → `SyntaxError`). Pipe `json.dump` to `curl --data-binary @-`. Missing `output/.../4k/*.mp4` is a download gap, not a new `GENERATE_VIDEO`.
 5. **Locations use landscape, characters use portrait** — reference image orientation depends on entity type.
 6. **UUID extraction** — if a response gives `CAMS...` instead of UUID, extract UUID from the `fifeUrl` in the response URL: `/image/{UUID}?...`.
 7. **Cascade on regen** — regenerating an image auto-clears downstream video + upscale.
