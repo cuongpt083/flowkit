@@ -12,6 +12,17 @@ ori=$(echo "$ORI" | tr '[:upper:]' '[:lower:]')
 ```
 **NEVER hardcode VERTICAL or HORIZONTAL.** Use `${ORI}` for API params, `${ori}_*` for DB field lookups.
 
+## Step 0b: Lite Continuity
+
+If `GET /api/models` uses `veo_3_1_i2v_lite` or `veo_3_1_i2v_lite_low_priority`, read `skills/lite-continuity.md`.
+
+Before the video batch:
+1. **Never** submit `GENERATE_VIDEO_REFS` / r2v.
+2. Build the child map (`parent_scene_id` → child). For each scene that has a child **in the same location / same CONTINUATION chain**, PATCH `${ori}_end_scene_media_id` to the **child's** `${ori}_image_media_id` (see `/fk-gen-chain-videos`). Chain tail and standalone ROOT: leave endImage null.
+3. Then submit `GENERATE_VIDEO` as below (worker uses start+end when end id is set).
+
+Wrong end id (parent image) makes the cut harder, not smoother.
+
 ## Step 1: Pre-check — all scene images must be ready
 
 ```bash
@@ -100,7 +111,8 @@ Print results table:
 | Scene | Order | video_status | video_media_id | video_url |
 |-------|-------|-------------|---------------|-----------|
 
-Print: "All videos ready. Run /fk-concat <VID> to download and merge."
+Print: "All videos ready. Run /fk-concat <VID> to download and merge (trim + xfade + loudnorm)."
+If Lite: remind TTS default — `/fk-gen-narrator` then `/fk-concat --with-tts` when `audio_mode=tts`.
 
 ## Important rules
 

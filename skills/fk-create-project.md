@@ -7,8 +7,20 @@ Create a new Google Flow video project. Ask the user for:
 5. **Visual assets** — name + visual description of key props/objects
 6. **Number of scenes** and **orientation** (VERTICAL or HORIZONTAL)
 7. **Render mode** — `cinematic` (default, AI video per scene) or `motion` (Vox-style: Ken Burns from stills, no paid video API). Use `motion` for cheap UAT / documentary slideshow.
+8. **Audio mode** (when video model is Veo Lite — see `skills/lite-continuity.md`) — `tts` (default: one narrator, Veo silent), `veo` (in-clip speech), or `hybrid`. Record `audio_mode: tts` in the project description.
 
 Then execute:
+
+## Lite Continuity (Veo 3.1 Lite)
+
+If `GET /api/models` uses `veo_3_1_i2v_lite` or `veo_3_1_i2v_lite_low_priority`, **read and apply** `skills/lite-continuity.md` before writing scenes.
+
+Must-do:
+- Default `audio_mode=tts`: no spoken lines in `video_prompt`; put speech in `narrator_text`.
+- New ROOT on location change, time skip, or every **8** CONTINUATION shots (reset drift).
+- One camera move per 8s clip. `transition_prompt` only when a same-room child exists.
+- Do not plan r2v / `GENERATE_VIDEO_REFS`.
+
 
 ## Real-People Characters (Documentary / News Projects)
 
@@ -156,6 +168,8 @@ Chain B (Pursuer): scene_11 [ROOT] → scene_13 → scene_15
 Then interleave by `display_order` for playback: 9,10,11,12,13,14,15. Each chain maintains its own visual consistency via EDIT_IMAGE.
 
 **Never chain scenes with different primary characters.** EDIT_IMAGE morphs the parent image — chaining Pursuer→Defector will morph Pursuer's face into Defector's scene, causing character drift.
+
+**Lite:** max **8** CONTINUATION shots per chain, then ROOT (same refs OK). Longer EDIT chains drift faces and rooms. Full policy: `skills/lite-continuity.md`.
 
 ### CONTINUATION Image Prompt Rule
 
@@ -344,7 +358,8 @@ Write video prompts as **natural prose** — like briefing a film director. Veo 
 - Every prompt needs: lighting description + audio description
 
 **Dialogue rules:**
-- Use `:` format to avoid subtitles: `Character says: "line" (no subtitles)`
+- **Lite + `audio_mode=tts` (default):** do **not** write spoken lines. Room tone + SFX only. `Negative: dialogue, speech, talking, subtitles, watermark, text overlay`. Narration lives in `narrator_text`.
+- **`audio_mode=veo` only:** Use `:` format to avoid subtitles: `Character says: "line" (no subtitles)`
 - Keep short — must fit in ~8 seconds of speech
 - Describe voice: `in a deep gravelly voice`, `whispering`
 - Delivery verbs: `says`, `whispers`, `shouts`, `gasps`, `asks`, `replies`, `murmurs`

@@ -1,8 +1,10 @@
 Download and concatenate all scene videos into a single video with optional TTS narration.
 
-Usage: `/fk-concat <video_id> [--with-tts] [--4k]`
+Usage: `/fk-concat <video_id> [--with-tts] [--4k] [--hard-cut]`
 
 Default: uses best available quality (4K upscale > regular video), preserves original audio.
+
+**Continuity (always on unless `--hard-cut`):** trim 0.4s off head and tail of each clip, `xfade=0.4` + `acrossfade` inside a CONTINUATION chain, hard cut between ROOT segments, then `loudnorm`. Lite policy: `skills/lite-continuity.md`. Do not `ffmpeg concat -c copy` raw 8s clips — that is what makes cuts feel spliced.
 
 ## Step 1: Get project, video, and scenes
 
@@ -87,76 +89,116 @@ After each download: `ffprobe` must show a video stream. If it fails, delete the
 
 **IMPORTANT: Never downscale 4K videos. If source is 3840x2160, output must be 3840x2160.**
 
-## Step 6: Normalize + mix audio
+## Step 6: Trim + normalize + mix audio
+
+Constants (override per scene if `trim_start` / `trim_end` exist on the scene object):
+
+```
+TRIM_HEAD=0.4
+TRIM_TAIL=0.4
+```
+
+`--hard-cut`: set both trims to `0`.
+
+Probe duration first. If `VIDEO_DUR <= TRIM_HEAD + TRIM_TAIL + 0.5`, skip trim (clip too short).
+
+```bash
+KEEP=$(python3 -c "print(max(0.5, ${VIDEO_DUR} - ${TRIM_HEAD} - ${TRIM_TAIL}))")
+```
 
 ### Option A: Without TTS (default)
-Preserve original video audio (sound effects from Google Flow):
+
 ```bash
-# CANONICAL = "${OUTDIR}/4k/scene_${IDX3}_${SCENE_ID}.mp4" (set in Step 4)
-ffmpeg -y -i "$CANONICAL" \
+ffmpeg -y -ss ${TRIM_HEAD} -i "$CANONICAL" -t ${KEEP} \
   -c:v libx264 -preset fast -crf 18 \
   -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
   -r 24 -pix_fmt yuv420p \
-  -c:a aac -b:a 192k \
+  -c:a aac -b:a 192k -ar 48000 -ac 2 \
   -movflags +faststart "${OUTDIR}/norm/scene_${IDX3}_${SCENE_ID}.mp4"
 ```
 
-### Option B: With TTS narration (`--with-tts`)
-Mix TTS audio WITH video sound effects using `amix` filter:
+### Option B: With TTS (`--with-tts`)
+
+Lite default `audio_mode=tts`. If a scene is missing `${OUTDIR}/tts/scene_${IDX3}_${SCENE_ID}.wav`, **ask or abort** — do not mix Veo speech next to TTS.
 
 ```bash
-# Find matching TTS wav
 TTS_WAV="${OUTDIR}/tts/scene_${IDX3}_${SCENE_ID}.wav"
 
-if [ -f "$TTS_WAV" ]; then
-  # MIX: video SFX at 30% volume + TTS narrator at 150% volume
-  ffmpeg -y -i "$CANONICAL" -i "$TTS_WAV" \
-    -filter_complex "[0:a]volume=0.3[bg];[1:a]volume=1.5[fg];[bg][fg]amix=inputs=2:duration=first[aout]" \
-    -map 0:v -map "[aout]" \
-    -c:v libx264 -preset fast -crf 18 \
-    -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
-    -r 24 -pix_fmt yuv420p \
-    -c:a aac -b:a 192k \
-    -movflags +faststart "${OUTDIR}/narrated/scene_${IDX3}_${SCENE_ID}.mp4"
-else
-  # No TTS for this scene — normalize with original audio only
-  ffmpeg -y -i "$CANONICAL" \
-    -c:v libx264 -preset fast -crf 18 \
-    -vf "scale=${W}:${H}" -r 24 -pix_fmt yuv420p \
-    -c:a aac -b:a 192k \
-    -movflags +faststart "${OUTDIR}/narrated/scene_${IDX3}_${SCENE_ID}.mp4"
-fi
+ffmpeg -y -ss ${TRIM_HEAD} -i "$CANONICAL" -i "$TTS_WAV" -t ${KEEP} \
+  -filter_complex "[0:a]volume=0.3[bg];[1:a]volume=1.5[fg];[bg][fg]amix=inputs=2:duration=first[aout]" \
+  -map 0:v -map "[aout]" \
+  -c:v libx264 -preset fast -crf 18 \
+  -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
+  -r 24 -pix_fmt yuv420p \
+  -c:a aac -b:a 192k -ar 48000 -ac 2 \
+  -movflags +faststart "${OUTDIR}/narrated/scene_${IDX3}_${SCENE_ID}.mp4"
 ```
 
-**CRITICAL: Do NOT use `-an` (strips all audio). Always preserve or mix audio.**
+`-ss` before `-i` on the **video** only (skips Lite freeze / overlap frames). TTS starts at 0.
 
-## Step 7: Create concat list and merge
+**CRITICAL: Do NOT use `-an`. Always preserve or mix audio.**
+**CRITICAL: Always `-ar 48000 -ac 2`.**
+
+## Step 7: Chain xfade + loudnorm + merge
+
+`SRC_DIR` = `narrated/` if `--with-tts`, else `norm/`.
+
+### 7a. Group by chain
+
+```python
+segments = []
+current = []
+for scene in sorted_scenes:
+    path = f"{SRC_DIR}/scene_{scene['display_order']:03d}_{scene['id']}.mp4"
+    if scene.get('chain_type') == 'CONTINUATION' and current:
+        current.append(path)
+    else:
+        if current:
+            segments.append(current)
+        current = [path]
+if current:
+    segments.append(current)
+```
+
+A ROOT starts a new segment. Consecutive CONTINUATION stay in the same segment.
+
+### 7b. Single-scene segment
+
+Copy/keep the trimmed file as that segment’s output.
+
+### 7c. Multi-scene chain — xfade (skip if `--hard-cut`)
+
+```
+XFADE_DUR=0.4
+```
+
+Same filter pattern as `/fk-concat-fit-narrator` Step 7b: `xfade=transition=fade:duration=0.4` + `acrossfade=d=0.4`. Offset = cumulative duration − `XFADE_DUR`. Write `${OUTDIR}/norm/chain_${seg:03d}.mp4` (or `narrated/`).
+
+Do **not** xfade two different locations (those are separate ROOT segments).
+
+### 7d. loudnorm each segment
 
 ```bash
-# Use narrated/ if --with-tts, otherwise norm/
-SRC_DIR="${OUTDIR}/narrated"  # or "${OUTDIR}/norm"
+ffmpeg -y -i "$SEG" \
+  -af "loudnorm=I=-16:TP=-1.5:LRA=11" \
+  -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 \
+  "${SEG%.mp4}_ln.mp4"
+```
 
+Use `*_ln.mp4` in the final list.
+
+Optional bed: if `${OUTDIR}/music.wav` exists, mix under the **final** file at `volume=0.18` after concat (duck; do not replace speech).
+
+### 7e. Final concat
+
+```bash
 > concat.txt
-# scenes array must be sorted by display_order; each entry has display_order and id
-for scene in "${SCENES[@]}"; do
-  IDX3=$(printf "%03d" "${scene[display_order]}")
-  SCENE_ID="${scene[id]}"
-  CANONICAL_NORM="${SRC_DIR}/scene_${IDX3}_${SCENE_ID}.mp4"
-  # Fallback to legacy 2-digit name if canonical not found
-  LEGACY_NORM="${SRC_DIR}/scene_$(printf "%02d" ${scene[display_order]}).mp4"
-  if [ -f "$CANONICAL_NORM" ]; then
-    echo "file '$CANONICAL_NORM'" >> concat.txt
-  elif [ -f "$LEGACY_NORM" ]; then
-    echo "file '$LEGACY_NORM'" >> concat.txt
-  else
-    echo "ERROR: missing normalized file for scene ${IDX3}_${SCENE_ID}" >&2
-    exit 1
-  fi
-done
-
+# one file= line per loudnorm'd segment
 ffmpeg -y -f concat -safe 0 -i concat.txt -c copy -movflags +faststart \
   "${OUTDIR}/${SLUG}_final.mp4"
 ```
+
+`--hard-cut`: skip 7c; concat loudnorm’d per-scene files in `display_order`.
 
 ## Step 8: Verify and output
 
@@ -177,9 +219,10 @@ Concat complete: <project_name>
   Output: ${OUTDIR}/${SLUG}_final.mp4
   Duration: X:XX
   Resolution: WxH
-  Audio: AAC (SFX + TTS narrator) or AAC (SFX only)
+  Audio: AAC (SFX + TTS narrator) or AAC (SFX only), loudnorm I=-16
   Size: XXX MB
   Scenes: N
+  Continuity: trim 0.4/0.4, xfade 0.4 in-chain (or --hard-cut)
 ```
 
 ## Common Issues
@@ -192,6 +235,9 @@ Concat complete: <project_name>
 | Signed URL expired | GCS URLs have ~8h TTL | Check local `${OUTDIR}/4k/` files first |
 | `curl` 403 on `flow-content.google` | URL is unsigned (`/video/<uuid>` only) or `Expires=` is in the past. The Flow **tab** still plays because the page fetches a new signed URL with cookies | Do not regenerate. Use a local file if size &gt; 10KB. Open the Flow project tab, `POST /api/flow/refresh-urls/<PID>`, then download. Never treat a 111–400 byte "mp4" (XML/HTML 403 body) as a clip |
 | Scene order wrong | Not sorted by display_order | Sort scenes before processing |
+| Harsh / freeze at cuts | Raw `concat -c copy` of full 8s Lite clips | Do not skip trim + in-chain xfade |
+| Face morph smear | xfade across a ROOT / new room | Hard cut at ROOT; only xfade CONTINUATION |
+| TTS vs Veo speech clash | Mixed audio_mode | Abort missing WAV when `--with-tts` |
 | `json.load('/tmp/regen_batch.json')` / `JSONDecodeError` | Script printed `Pending: N` then JSON into the same file, or used `echo`/`\"` inside `python3 -c` | Not part of this skill. Abort concat. Download missing files from scene URLs. Run `/fk-gen-videos` only if the scene has no URL and no COMPLETED request |
 | `SyntaxError: unexpected character after line continuation` in `python3 -c` | Nested `\"` inside a single-quoted `-c` string (`open(\"/tmp/...\")`) | Do not nest `python3 -c` inside `echo $(...)`. Use `json.dump` only, or skip the temp file |
 | Missing `output/.../4k/*.mp4` | File never downloaded | Step 4 `curl` the scene URL. Do not `GENERATE_VIDEO` |

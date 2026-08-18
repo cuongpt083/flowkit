@@ -96,7 +96,8 @@ For each scene, single ffmpeg pass — trim, normalize resolution, and mix TTS:
 ### Scene WITH TTS:
 
 ```bash
-ffmpeg -y -ss 1 -i "$VIDEO_FILE" -i "$TTS_WAV" \
+TRIM_HEAD=0.4
+ffmpeg -y -ss ${TRIM_HEAD} -i "$VIDEO_FILE" -i "$TTS_WAV" \
   -t ${CUT_DUR} \
   -filter_complex "[0:a]volume=0.3[bg];[1:a]volume=1.5[fg];[bg][fg]amix=inputs=2:duration=first[aout]" \
   -map 0:v -map "[aout]" \
@@ -109,7 +110,7 @@ ffmpeg -y -ss 1 -i "$VIDEO_FILE" -i "$TTS_WAV" \
 ```
 
 **Key flags:**
-- `-ss 1` (before `-i "$VIDEO_FILE"`) — input seek on video only, skips first 1s static frame. Does NOT affect TTS input.
+- `-ss ${TRIM_HEAD}` (default **0.4**, was 1s) before `-i "$VIDEO_FILE"` — skips Lite freeze / chain overlap. Does NOT affect TTS input. Use `0.4` unless the user passes a larger trim. Aligns with `/fk-concat` and `skills/lite-continuity.md`.
 - TTS (`$TTS_WAV`) starts from 0s — narration plays from the very beginning of the trimmed output.
 - `-t ${CUT_DUR}` — trims output to narrator duration + buffer
 - `duration=first` — audio output matches the first input (video SFX), which `-t` then trims to cut duration. TTS plays fully within this window since cut = tts_dur + buffer.
@@ -120,7 +121,7 @@ ffmpeg -y -ss 1 -i "$VIDEO_FILE" -i "$TTS_WAV" \
 
 ```bash
 ffmpeg -y -i "$VIDEO_FILE" \
-  -ss 1 \
+  -ss ${TRIM_HEAD} \
   -c:v libx264 -preset fast -crf 18 \
   -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
   -r 24 -pix_fmt yuv420p \
@@ -223,7 +224,7 @@ if current_chain:
 **Multi-scene chain segments (2+ scenes):** apply `xfade` cross-dissolve between consecutive scenes in the chain. This creates smooth crossfade transitions within continuous action sequences.
 
 ```python
-XFADE_DUR = 0.5  # 0.5s crossfade overlap
+XFADE_DUR = 0.4  # match /fk-concat + lite-continuity
 
 for segment in segments:
     if len(segment) == 1:

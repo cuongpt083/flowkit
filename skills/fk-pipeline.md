@@ -127,6 +127,17 @@ Plan:
 
 ---
 
+## Lite Continuity
+
+If `GET /api/models` video keys contain `i2v_lite`, apply `skills/lite-continuity.md` for the rest of the run:
+
+- Stage VIDEOS: set `${ori}_end_scene_media_id` on same-room CONTINUATION parents (child image UUID) **before** `GENERATE_VIDEO`. Never `GENERATE_VIDEO_REFS`.
+- Do not treat creative-mix T3 / r2v as available.
+- `--concat` → `/fk-concat` with trim + chain xfade + loudnorm (not raw copy-only concat).
+- Lite default `audio_mode=tts`: prefer `--tts`. If no TTS template, pause for `/fk-gen-tts-template` or `/fk-import-voice` before concat. Do not mix Veo speech with TTS in one final file.
+
+---
+
 ## Step 2: Stage Routing
 
 Use this decision tree to determine which stages to run and in what order.
@@ -213,6 +224,8 @@ Batch 5 at a time. Poll every 15s. Submit next batch when current batch complete
 ### Stage 2 — Scene Videos
 
 Only run after all scene images COMPLETED.
+
+**Lite:** before submit, PATCH end ids for chained CONTINUATION scenes (child `${ori}_image_media_id`). See `skills/lite-continuity.md` and `/fk-gen-chain-videos`.
 
 First list existing requests (`GET /api/requests?video_id=<VID>`). Skip any scene that already has PENDING or PROCESSING `GENERATE_VIDEO`.
 
@@ -342,7 +355,7 @@ ffprobe -v quiet -show_entries format=duration -of csv=p=0 "<file>"
 
 Run after UPSCALE + DOWNLOAD + TTS all complete. Delegates to `/fk-concat`.
 
-Invoke: `/fk-concat --4k --with-tts` (or appropriate flags based on what was run).
+Invoke: `/fk-concat --4k --with-tts` (or appropriate flags based on what was run). Lite: that skill **must** trim 0.4s, xfade 0.4s inside chains, and loudnorm — do not skip to `ffmpeg concat -c copy` on raw clips.
 
 ---
 

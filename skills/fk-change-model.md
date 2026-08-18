@@ -133,6 +133,16 @@ curl -s http://127.0.0.1:8100/api/models | python3 -m json.tool
 
 Changes are **hot-reloaded** — no server restart needed. The new model keys are used immediately for all subsequent requests.
 
+### After switching to VEO 3.1 Lite / Lite Low Priority
+
+Print this policy (full text: `skills/lite-continuity.md`):
+
+1. **No r2v** — do not submit `GENERATE_VIDEO_REFS`.
+2. **TTS default** — Veo stays silent; one narrator template + `/fk-concat --with-tts`.
+3. **Max 8 CONTINUATION** shots, then ROOT reset (same refs).
+4. **Chain video** — `end_scene_media_id` = **child** still; then `GENERATE_VIDEO`.
+5. **Concat** — trim 0.4s head/tail, xfade 0.4s in-chain, loudnorm; hard cut at ROOT.
+
 ---
 
 ## Known Model Keys

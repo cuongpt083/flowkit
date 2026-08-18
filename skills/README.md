@@ -10,7 +10,8 @@ Workflow skills for AI agents and humans. Each skill is a step-by-step recipe.
 | 2 | `fk-gen-refs` | [fk-gen-refs.md](fk-gen-refs.md) | Generate reference images for all entities |
 | 3 | `fk-gen-images` | [fk-gen-images.md](fk-gen-images.md) | Generate scene images with character refs |
 | 4 | `fk-gen-videos` | [fk-gen-videos.md](fk-gen-videos.md) | Generate videos from scene images |
-| 5 | `fk-concat` | [fk-concat.md](fk-concat.md) | Download + merge all scene videos |
+| 5 | `fk-concat` | [fk-concat.md](fk-concat.md) | Download + trim + chain xfade + loudnorm + merge |
+| — | Lite Continuity | [lite-continuity.md](lite-continuity.md) | Policy when video model is Veo 3.1 Lite |
 
 ## Advanced Video
 
