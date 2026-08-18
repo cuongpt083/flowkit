@@ -22,8 +22,9 @@ curl -s http://127.0.0.1:8100/health
 
 | Skill | When to use |
 |-------|-------------|
+| `/fk-research` | Fact-check before story design |
+| `/fk-story-telling-design` | Beat sheet (education / short film / doc); approve → create-project |
 | `/fk-create-project` | New project with entities + scenes |
-| `/fk-research` | Fact-check before scripting |
 | `/fk-gen-refs` | Generate reference images for entities |
 | `/fk-gen-images` | Generate scene images |
 | `/fk-gen-videos` | Generate scene videos |

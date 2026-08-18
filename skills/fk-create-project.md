@@ -1,4 +1,8 @@
-Create a new Google Flow video project. Ask the user for:
+Create a new Google Flow video project.
+
+**Story first:** If there is no approved beat sheet at `.omc/stories/{slug}_beats.md` (`status: approved`), run `/fk-story-telling-design` instead of inventing a plot here. Exception: user explicitly says skip storytelling and provides a finished script/summary. When a sheet exists, treat it as the plot source of truth — do not invent a new spine. Still ask production fields below.
+
+Ask the user for:
 
 1. **Project name** and **story** (brief plot summary)
 2. **Material** — the visual style for all images. Choose one of the 6 built-in styles or a custom material. Run `GET /api/materials` to show available options. Built-ins: `realistic`, `3d_pixar`, `anime`, `stop_motion`, `minecraft`, `oil_painting`. **Required.**

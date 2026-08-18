@@ -6,6 +6,8 @@ Workflow skills for AI agents and humans. Each skill is a step-by-step recipe.
 
 | # | Skill | File | Description |
 |---|-------|------|-------------|
+| 0 | `fk-research` | [fk-research.md](fk-research.md) | Fact-check before story design |
+| 0b | `fk-story-telling-design` | [fk-story-telling-design.md](fk-story-telling-design.md) | Beat sheet + approve, then create-project |
 | 1 | `fk-create-project` | [fk-create-project.md](fk-create-project.md) | Create project + entities + video + scenes |
 | 2 | `fk-gen-refs` | [fk-gen-refs.md](fk-gen-refs.md) | Generate reference images for all entities |
 | 3 | `fk-gen-images` | [fk-gen-images.md](fk-gen-images.md) | Generate scene images with character refs |

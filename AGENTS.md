@@ -103,6 +103,7 @@ This project has reusable skills in `skills/`. When the user says `/fk-<name>`, 
 | `/fk-review-board` | Start the Scene Review Board web app for visual feedback on scene chains. |
 | `/fk-review-video` | Review AI-generated scene videos for quality using Claude Vision. |
 | `/fk-status` | Show full status dashboard for a project. |
+| `/fk-story-telling-design` | Design story structure before creating a Flow project |
 | `/fk-switch-project` | fk-switch-project — Switch Active Project |
 | `/fk-thumbnail-guide` | YouTube Thumbnail Guide — Hook-Worthy Design Rules |
 | `/fk-thumbnail` | Generate 4 YouTube-optimized thumbnail variants for a project video. |

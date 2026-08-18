@@ -108,12 +108,14 @@ Research complete: [Topic]
 - [N] real operation names confirmed
 - Saved to: .omc/research/{slug}_research.md
 
-Ready for /fk-create-project — use this research as the story source.
+Ready for /fk-story-telling-design — then /fk-create-project after the beat sheet is approved.
 ```
 
-## Step 6: Handoff to Project Creation
+## Step 6: Handoff to Storytelling
 
-When the user proceeds to `/fk-create-project`, the research file serves as the **single source of truth** for:
+Next skill is `/fk-story-telling-design`, not create-project. Research is the fact source. The beat sheet (after conflict resolution) is the story source.
+
+When the user later runs `/fk-create-project`, the research file plus the approved beat sheet are the sources for:
 - `story` field — summary built from verified timeline
 - `narrator_text` — must reference only verified events
 - Scene descriptions — must depict real events, not invented scenarios
@@ -124,11 +126,13 @@ When the user proceeds to `/fk-create-project`, the research file serves as the 
 ## Integration with Pipeline
 
 ```
-/fk-research "topic"          ← MUST run first
+/fk-research "topic"                 ← MUST run first
     ↓
-/fk-create-project            ← story from research
+/fk-story-telling-design             ← beat sheet; confirm conflicts with user
     ↓
-/fk-pipeline                  ← normal pipeline continues
+/fk-create-project                   ← only after beat sheet approved
+    ↓
+/fk-pipeline
 ```
 
 ## Examples
