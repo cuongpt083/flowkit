@@ -31,6 +31,7 @@ The `scene_prefix` is baked into each scene's `prompt` field when the scene is c
 | `claymation` | Claymation | Clay puppets with fingerprint textures (Wallace & Gromit/Aardman) |
 | `lego` | LEGO | Minifigure characters, brick-built worlds, ABS plastic |
 | `retro_vhs` | Retro VHS | 1980s analog VHS, scan lines, CRT curvature, warm grain |
+| `vox_collage` | Vox Paper Collage | Torn-paper editorial collage, halftone, flat color, printed cut-outs (explainer / motion) |
 
 ---
 

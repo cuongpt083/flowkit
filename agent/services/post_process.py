@@ -153,13 +153,96 @@ def add_music(video_path: str, music_path: str, output_path: str,
     return True
 
 
-# Ken Burns / Vox-style still → clip. Preset strings are fixed (no user input).
-_MOTION_PRESETS = (
-    "z='min(zoom+0.0012,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'",
-    "z='if(eq(on,1),1.12,max(zoom-0.0012,1.0))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'",
-    "z='1.08':x='(iw-iw/zoom)*on/{frames}':y='ih/2-(ih/zoom/2)'",
-    "z='1.08':x='(iw-iw/zoom)*(1-on/{frames})':y='ih/2-(ih/zoom/2)'",
+# Ken Burns / Vox: one small continuous move. y biased to the top so baked headlines stay in frame.
+MOTION_PRESET_NAMES = ("push_in", "pull_out", "pan_right", "pan_left", "hold")
+
+_HOLD_KW = (
+    "close-up", "closeup", "close up", "portrait", "headline", "stat",
+    "face", "macro", "detail shot",
 )
+_PAN_KW = (
+    "wide", "establishing", "landscape", "map", "skyline", "crowd", "cityscape",
+)
+_PULL_KW = (
+    "pull back", "pull-out", "pull out", "ending", "resolution", "commitment",
+    "epilogue", "settle",
+)
+
+
+def infer_motion_preset(scene: dict, *, scene_count: int | None = None) -> str:
+    """Pick one Vox camera move from scene text and position."""
+    order = int(scene.get("display_order") or 0)
+    blob = " ".join((
+        scene.get("prompt") or "",
+        scene.get("video_prompt") or "",
+        scene.get("narrator_text") or "",
+    )).lower()
+    if scene_count is not None and scene_count > 0 and order >= scene_count - 1:
+        return "pull_out"
+    if any(k in blob for k in _HOLD_KW):
+        return "hold"
+    if any(k in blob for k in _PULL_KW):
+        return "pull_out"
+    if any(k in blob for k in _PAN_KW):
+        return "pan_right" if order % 2 == 0 else "pan_left"
+    if order == 0:
+        return "push_in"
+    return "push_in" if order % 2 == 0 else "pan_right"
+
+
+def probe_media_duration(path: str | Path) -> float | None:
+    """Return duration in seconds from ffprobe, or None."""
+    src = Path(path)
+    if not src.exists():
+        return None
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+                "-of", "csv=p=0", str(src),
+            ],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        value = float((result.stdout or "").strip())
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def estimate_motion_duration(scene: dict, tts_seconds: float | None = None) -> float:
+    """Fit clip length to VO when possible. Floor 3s, cap 8s."""
+    if tts_seconds and tts_seconds > 0:
+        return max(3.0, min(float(tts_seconds) + 0.5, 8.0))
+    text = (scene.get("narrator_text") or "").strip()
+    if text:
+        return max(3.0, min(len(text.split()) / 3.5 + 0.5, 8.0))
+    try:
+        raw = float(scene.get("duration") or 8.0)
+    except (TypeError, ValueError):
+        raw = 8.0
+    return max(3.0, min(raw, 8.0))
+
+
+def _zoompan_expr(name: str, frames: int) -> str:
+    n = max(frames - 1, 1)
+    y = "(ih-ih/zoom)*0.12"
+    cx = "iw/2-(iw/zoom/2)"
+    if name == "push_in":
+        step = 0.08 / n
+        return f"z='min(zoom+{step:.6f},1.08)':x='{cx}':y='{y}'"
+    if name == "pull_out":
+        step = 0.08 / n
+        return f"z='if(eq(on,1),1.08,max(zoom-{step:.6f},1.0))':x='{cx}':y='{y}'"
+    if name == "pan_right":
+        return f"z='1.06':x='(iw-iw/zoom)*on/{n}':y='{y}'"
+    if name == "pan_left":
+        return f"z='1.06':x='(iw-iw/zoom)*(1-on/{n})':y='{y}'"
+    return f"z='1.04':x='{cx}':y='{y}'"
 
 
 def image_to_motion_clip(
@@ -169,6 +252,7 @@ def image_to_motion_clip(
     duration: float = 8.0,
     orientation: str = "HORIZONTAL",
     preset_index: int = 0,
+    preset_name: str | None = None,
     fps: int = 24,
 ) -> bool:
     """Turn a still image into a short Ken Burns clip with silent stereo audio."""
@@ -186,8 +270,8 @@ def image_to_motion_clip(
         width, height = 1080, 1920
     else:
         width, height = 1920, 1080
-    preset = _MOTION_PRESETS[preset_index % len(_MOTION_PRESETS)]
-    zoom = preset.replace("{frames}", str(max(frames - 1, 1)))
+    name = preset_name if preset_name in MOTION_PRESET_NAMES else MOTION_PRESET_NAMES[preset_index % 4]
+    zoom = _zoompan_expr(name, frames)
     vf = (
         f"scale=8000:-1,zoompan={zoom}:d={frames}:s={width}x{height}:fps={fps},"
         f"format=yuv420p"

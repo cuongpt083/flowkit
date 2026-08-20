@@ -10,7 +10,7 @@ Ask the user for:
 4. **Locations** — name + visual description of key places
 5. **Visual assets** — name + visual description of key props/objects
 6. **Number of scenes** and **orientation** (VERTICAL or HORIZONTAL)
-7. **Render mode** — `cinematic` (default, AI video per scene) or `motion` (Vox-style: Ken Burns from stills, no paid video API). Use `motion` for cheap UAT / documentary slideshow.
+7. **Render mode** — `cinematic` (default, AI video per scene) or `motion` (Vox-style Ken Burns from stills, no Veo). For motion, **prefer material `vox_collage`**. See `/fk-render-motion`.
 8. **Audio mode** (when video model is Veo Lite — see `skills/lite-continuity.md`) — `tts` (default: one narrator, Veo silent), `veo` (in-clip speech), or `hybrid`. Record `audio_mode: tts` in the project description.
 
 Then execute:
@@ -25,6 +25,19 @@ Must-do:
 - One camera move per 8s clip. `transition_prompt` only when a same-room child exists.
 - Do not plan r2v / `GENERATE_VIDEO_REFS`.
 
+## Motion / Vox (when `render_mode` is `motion`)
+
+Read `/fk-render-motion`. Default material to **`vox_collage`** unless the user refuses.
+
+Scene stills are **collage posters**, not cinematic plates:
+
+- Reuse the material prefix. Describe the scene as **separate paper cut-outs** (subject, one prop, scraps) with edges and drop shadows.
+- One **bold flat** background color per beat (color may travel; texture must not).
+- Optional headline: 2–3 words in `"quotes"` baked into the image. Do not ask Veo to render type later.
+- Real people: photographic sticker / torn paper border — do not redraw the face.
+- `video_prompt` is unused for motion video. Put VO in `narrator_text`. No `says:`.
+- Do not set `end_scene_media_id` or write `transition_prompt` for motion.
+- New ROOT when the beat or flat color changes; avoid 40-shot CONTINUATION (collage posters are discrete).
 
 ## Real-People Characters (Documentary / News Projects)
 

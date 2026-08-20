@@ -2,7 +2,12 @@
 
 from unittest.mock import MagicMock, patch
 
-from agent.services.post_process import image_to_motion_clip
+from agent.services.post_process import (
+    _zoompan_expr,
+    estimate_motion_duration,
+    image_to_motion_clip,
+    infer_motion_preset,
+)
 
 
 def test_image_to_motion_clip_builds_zoompan_and_silent_audio(tmp_path):
@@ -49,3 +54,45 @@ def test_image_to_motion_clip_vertical_size(tmp_path):
 
 def test_image_to_motion_clip_missing_source(tmp_path):
     assert image_to_motion_clip(str(tmp_path / "nope.jpg"), str(tmp_path / "o.mp4")) is False
+
+
+def test_image_to_motion_clip_named_preset_caps_zoom(tmp_path):
+    still = tmp_path / "in.jpg"
+    still.write_bytes(b"x")
+    out = tmp_path / "out.mp4"
+    fake = MagicMock(returncode=0)
+
+    with patch("agent.services.post_process.subprocess.run", return_value=fake) as run:
+        def _write(*args, **kwargs):
+            out.write_bytes(b"mp4")
+            return fake
+
+        run.side_effect = _write
+        image_to_motion_clip(
+            str(still), str(out), duration=4, orientation="HORIZONTAL", preset_name="hold",
+        )
+
+    joined = " ".join(run.call_args[0][0])
+    assert "1.04" in joined
+    assert "1.12" not in joined
+
+
+def test_infer_motion_preset_hook_hold_wide_last():
+    assert infer_motion_preset({"display_order": 0}) == "push_in"
+    assert infer_motion_preset({"display_order": 2, "prompt": "Close-up of the headline"}) == "hold"
+    assert infer_motion_preset({"display_order": 2, "prompt": "Wide establishing skyline"}) == "pan_right"
+    assert infer_motion_preset({"display_order": 9}, scene_count=10) == "pull_out"
+
+
+def test_estimate_motion_duration_from_tts_and_words():
+    assert estimate_motion_duration({}, 4.0) == 4.5
+    # 7 words / 3.5 + 0.5 = 2.5 → floor 3.0
+    assert estimate_motion_duration({"narrator_text": "one two three four five six seven"}) == 3.0
+    assert estimate_motion_duration({"duration": 12}) == 8.0
+
+
+def test_zoompan_expr_protects_top_and_limits_zoom():
+    expr = _zoompan_expr("push_in", 96)
+    assert "1.08" in expr
+    assert "0.12" in expr
+    assert _zoompan_expr("hold", 48).startswith("z='1.04'")

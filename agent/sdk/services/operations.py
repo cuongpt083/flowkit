@@ -41,7 +41,7 @@ import aiohttp
 
 from agent.db import crud
 from agent.config import VIDEO_POLL_INTERVAL, VIDEO_POLL_TIMEOUT
-from agent.utils.paths import project_dir, scene_4k_path, scene_filename
+from agent.utils.paths import project_dir, scene_4k_path, scene_filename, scene_tts_path
 from agent.utils.slugify import slugify
 from agent.worker._parsing import (
     _is_error,
@@ -446,8 +446,12 @@ async def _render_motion_clip(scene: dict, orientation: str, project: dict | Non
     """Vox / Ken Burns clip from the scene still — no paid video API."""
     from shutil import copy2
 
-    from agent.services.post_process import image_to_motion_clip
-
+    from agent.services.post_process import (
+        estimate_motion_duration,
+        image_to_motion_clip,
+        infer_motion_preset,
+        probe_media_duration,
+    )
     prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
     source = _still_source(scene, prefix)
     if not source:
@@ -462,18 +466,16 @@ async def _render_motion_clip(scene: dict, orientation: str, project: dict | Non
     if not await _download_still(source, stills):
         return {"error": f"Failed to download still for motion render: {source[:120]}"}
 
-    duration = scene.get("duration")
-    try:
-        duration = float(duration) if duration else 8.0
-    except (TypeError, ValueError):
-        duration = 8.0
+    tts_s = probe_media_duration(scene_tts_path(slug, order, sid))
+    duration = estimate_motion_duration(scene, tts_s)
+    preset_name = infer_motion_preset(scene)
 
     ok = image_to_motion_clip(
         str(stills),
         str(out),
         duration=duration,
         orientation=orientation,
-        preset_index=order,
+        preset_name=preset_name,
     )
     if not ok:
         return {"error": "Ken Burns ffmpeg render failed"}
@@ -485,7 +487,7 @@ async def _render_motion_clip(scene: dict, orientation: str, project: dict | Non
 
     abs_url = f"file://{out.resolve()}"
     job = f"motion-{sid}-{orientation.lower()}"
-    logger.info("Motion clip ready: %s (%.1fs)", out, duration)
+    logger.info("Motion clip ready: %s (%.1fs, %s)", out, duration, preset_name)
     return {
         "data": {
             "operations": [{

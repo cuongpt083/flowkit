@@ -3,7 +3,7 @@
 _BUILTIN_IDS: frozenset[str] = frozenset({
     "realistic", "3d_pixar", "anime", "ghibli", "stop_motion", "minecraft",
     "oil_painting", "watercolor", "comic_book", "cyberpunk", "claymation",
-    "lego", "retro_vhs",
+    "lego", "retro_vhs", "vox_collage",
 })
 
 MATERIALS: dict[str, dict] = {
@@ -244,6 +244,28 @@ MATERIALS: dict[str, dict] = {
             "CRT curvature, nostalgic 80s grain."
         ),
         "lighting": "Warm tungsten lighting, CRT glow, analog video bloom",
+    },
+    "vox_collage": {
+        "id": "vox_collage",
+        "name": "Vox Paper Collage",
+        "style_instruction": (
+            "Mixed-media hand-cut PAPER COLLAGE, editorial zine style. "
+            "Torn or scissor-cut paper edges, tape corners, halftone print dots, "
+            "newspaper clippings, paper-stencil shapes, real paper drop shadows. "
+            "Figures are PRINTED-texture cut-outs, NOT CGI, NOT a 3D render — "
+            "keep print grain and paper imperfections. High contrast. "
+            "One bold flat paper color behind layered cut-outs."
+        ),
+        "negative_prompt": (
+            "NOT photorealistic, NOT 3D render, NOT CGI, NOT cinematic live action, "
+            "NOT smooth digital painting, NOT anime, NOT Pixar."
+        ),
+        "scene_prefix": (
+            "Mixed-media hand-cut paper collage, torn edges, tape, halftone dots, "
+            "layered printed cut-outs with drop shadows on one bold flat paper color. "
+            "NOT 3D, NOT CGI, keep print grain."
+        ),
+        "lighting": "Flat even scanned-document light, paper drop-shadows, no cinematic 3D lighting",
     },
 }
 
