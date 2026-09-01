@@ -190,6 +190,15 @@ async def sync_videos(project_id: str | None = None):
     return await client.sync_completed_flow_videos(project_id=project_id)
 
 
+@router.get("/user-history")
+async def get_user_history(page_size: int = 100):
+    """Fetch user generation history directly from TRPC."""
+    client = get_flow_client()
+    if not client.connected:
+        raise HTTPException(503, "Extension not connected")
+    return await client.fetch_pinhole_history_get(page_size=page_size)
+
+
 @router.get("/media/{media_id}")
 async def get_media(media_id: str):
     """Get media metadata + fresh signed URL from Google Flow.

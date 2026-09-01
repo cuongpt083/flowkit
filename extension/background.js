@@ -724,20 +724,6 @@ async function handleScrapeFlowMedia(msg) {
           if (canY && el.scrollHeight > el.clientHeight + 80) scrollers.push(el);
         });
         harvest();
-        const clickables = document.querySelectorAll('video, img');
-        for (let i = 0; i < Math.min(clickables.length, 80); i++) {
-          try { clickables[i].click(); } catch {}
-        }
-        for (const root of scrollers.slice(0, 8)) {
-          const step = Math.max(400, Math.floor((root.clientHeight || window.innerHeight) * 0.8));
-          const maxY = Math.max(0, (root.scrollHeight || 0) - (root.clientHeight || 0));
-          for (let y = 0; y <= maxY + step; y += step) {
-            try { root.scrollTop = y; } catch {}
-            await sleep(280);
-            harvest();
-            document.querySelectorAll('video').forEach((v) => add(v.currentSrc || v.src));
-          }
-        }
         const urls = found.filter((u) =>
           /flow-content\.google|videofx|googleusercontent|\/video\/|\/image\/|\.mp4/i.test(u)
         );
