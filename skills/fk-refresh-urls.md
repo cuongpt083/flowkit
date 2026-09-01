@@ -39,6 +39,8 @@ This asks the Flow Kit extension to scrape the **open Flow project tab** (scroll
 
 The Flow tab must be open on this project. Unsigned `/video/<uuid>` paths 403 when `curl`ed; only signed `Expires=` URLs work outside Chrome.
 
+**Antigravity:** use the **browser subagent** (`/browser`) to open/focus the Flow project tab if needed. Do **not** attach Chrome DevTools / CDP to port **9222** (Flow Kit extension WebSocket). Do not click Generate in the Flow UI.
+
 ```bash
 curl -s -X POST "http://127.0.0.1:8100/api/flow/refresh-urls/${PID}" | python3 -c "
 import sys, json

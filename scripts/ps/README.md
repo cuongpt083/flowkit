@@ -71,6 +71,13 @@ Do not translate the markdown ```bash``` blocks yourself.
 | `fk-brand-logo.ps1` | `/fk-brand-logo` |
 | `fk-thumbnail.ps1` | `/fk-thumbnail` |
 
+## Orchestration twins (PR4)
+
+| Script | Skill |
+|--------|--------|
+| `fk-pipeline.ps1` | `/fk-pipeline` |
+| `fk-monitor.ps1` | `/fk-monitor` |
+
 This folder always contains `FkCommon.psm1`.
 
 ## Tests

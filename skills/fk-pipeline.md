@@ -18,6 +18,14 @@ Examples:
 - `/fk-pipeline --upscale --tts --download --notify` — full run with all options
 - `/fk-pipeline <project_id> HORIZONTAL --upscale --download` — explicit project + orientation
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-pipeline.ps1 -ProjectId <PID> [-Upscale] [-Tts] [-Download] [-Concat] [-FourK] [-WithTts]
+
+Host (Antigravity) may spawn a subagent for TTS while this script runs upscale. Lines starting `[NOTIFY]` are for Telegram/MCP. Do not use host generate-image in this pipeline. Policy in this file still applies.
+
 ---
 
 ## When to Use

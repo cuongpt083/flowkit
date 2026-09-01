@@ -61,7 +61,7 @@ Changes are **hot-reloaded** — no server restart needed. The new provider is u
 ## Notes
 
 - `claude` = Claude Code CLI (default)
-- `agy` = Google Antigravity CLI
+- `agy` = Google Antigravity CLI. **Prefer `agy` when the host agent is Antigravity 2.0.**
 - `codex` = OpenAI Codex CLI
 - Switching is hot-reloaded — no server restart needed.
 - **`codex` requires a separate one-time `codex login` (interactive OAuth in a terminal) before it will actually work.** Being listed as `installed: true` only means the binary is present on PATH — it does not mean it's authenticated. If a codex-backed review fails with an auth error, run `codex login` and retry.

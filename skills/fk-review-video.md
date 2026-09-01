@@ -2,7 +2,13 @@ Review AI-generated scene videos for quality using Claude Vision.
 
 Usage: `/fk-review-video <video_id> [--mode light|deep]`
 
+## Windows (PowerShell)
+
+Still call the review **API** (this skill). On Windows use `Invoke-RestMethod` via a one-off `Invoke-FkApi` or keep using the host HTTP helper — there is no `fk-review-video.ps1` yet. Do not replace review with generate-image.
+
 Default mode: `light`. Orientation auto-detected from project `meta.json`.
+
+When the host is **Google Antigravity**, prefer review provider `agy` (`/fk-change-provider set agy`) so vision uses the Antigravity CLI already signed in. Still call `POST /api/videos/<VID>/review` — do not replace the API with a one-off generate-image or ad-hoc screenshot.
 
 ## Prerequisites
 

@@ -21,6 +21,8 @@ PR2_TWINS = {
     "concat-fit-narrator",
     "brand-logo",
     "thumbnail",
+    "pipeline",
+    "monitor",
 }
 
 

@@ -679,6 +679,8 @@ Giống Claude Code: gõ `/` rồi chọn `/fk-create-project`, `/fk-gen-refs`, 
 
 Antigravity còn **tự chọn** công thức phù hợp khi bạn mô tả việc — không bắt buộc gõ `/`. Nếu nó làm lệch pipeline, nhắc rõ: “dùng skill fk-gen-refs”.
 
+**Ảnh generate sẵn trong Antigravity** chỉ dùng moodboard, storyboard, logo, hoặc thumbnail nháp. Ảnh nhân vật / ảnh cảnh / video 8s **luôn** tạo qua Google Flow (`/fk-gen-refs`, `/fk-gen-images`, `/fk-gen-videos`). Trên Windows, nhờ agent chạy `.\scripts\ps\fk-….ps1` trong Terminal, không gõ bash. Đừng gắn Chrome debug vào cổng 9222 (trùng extension).
+
 Video kiểu Vox: [phần 14](#14-video-kiểu-vox--motion-graphic-rẻ-phù-hợp-uat) — `/fk-render-motion` cũng có trên Antigravity sau khi chạy `setup.py`.
 
 ### Việc không cần làm

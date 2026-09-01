@@ -2,6 +2,10 @@ Generate 4 YouTube-optimized thumbnail variants for a project video.
 
 Usage: `/fk-thumbnail [project_id]`
 
+## Host generate-image (Antigravity policy A)
+
+Official YouTube thumbnails go through **this skill + Flow** (`POST .../generate-thumbnail`). Do **not** use Antigravity/Gemini generate-image as the shipped thumbnail. Host generate-image is allowed only as a **throwaway draft** the user asked to see; if they pick a draft look, still re-run Flow thumbnail (or treat the draft as non-pipeline art).
+
 ## Windows (PowerShell)
 
 Do not run the bash recipes below. Write four prompt strings (this skill), then:

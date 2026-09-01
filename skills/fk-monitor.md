@@ -9,6 +9,14 @@ Usage: `/fk-monitor [project_id] [orientation] [--download] [--interval N]`
 - `--download` — auto-download new upscales to `output/{slug}/4k/`
 - `--interval N` — poll interval in seconds (default: **180**, 3 minutes)
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-monitor.ps1 [-ProjectId <PID>] [-Download] [-IntervalSeconds 180] [-MaxCycles N]
+
+`[NOTIFY]` lines are for the host to forward to Telegram. Policy in this file still applies.
+
 ## When to Use
 
 - Long-running batch: submitted image/video/upscale jobs and want to be notified when stages complete

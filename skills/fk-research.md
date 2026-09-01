@@ -4,6 +4,10 @@ Research and verify real-world events before creating documentary content. This 
 
 Usage: `/fk-research <topic> [--language vi] [--depth deep|quick]`
 
+## Windows / Antigravity
+
+No PowerShell twin (no Flow HTTP). Use the host **web search** tool, then save `.omc/research/*.md` with the file tool. On Windows still do not use bash `/tmp`.
+
 Arguments:
 - `topic` — the subject to research (e.g., "US Iran conflict 2025", "Strait of Hormuz crisis")
 - `--language` — output language for the research report (default: vi)
@@ -25,7 +29,7 @@ Break the topic into 5-7 key research questions:
 
 ## Step 2: Web Search — Gather Facts
 
-For each research question, run targeted web searches using `WebSearch`:
+For each research question, run targeted web searches using the **host web-search tool** (Antigravity search/grounding, `WebSearch`, or equivalent). Prefer the host tool when running inside Antigravity — do not skip this skill because Flow has no search API.
 
 ```
 WebSearch: "US Iran military conflict 2025 timeline"

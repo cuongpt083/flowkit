@@ -18,6 +18,7 @@ curl -s http://127.0.0.1:8100/health
 - `media_id` is always UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`), never `CAMS...` strings. Missing ids/urls may be JSON `null` — use `(s.get("horizontal_video_url") or "")[:40]`, never `s.get(..., "")[:n]`.
 - **On any pipeline error** (request `FAILED`, stuck `PROCESSING`, `extension_connected: false`, HTTP 4xx/5xx from `:8100`, YouTube `HttpError`, error strings like `UNSAFE_GENERATION` / `not found` / `CAPTCHA` / `NO_FLOW_KEY`): invoke `/fk-doctor` before guessing a fix
 - **Windows PowerShell:** execute `scripts/ps/fk-*.ps1` instead of the skill ```bash``` blocks. Never emit bash (`sleep`, `/tmp`, `python3 -c`, `mkdir -p`). Never use the PowerShell `curl` alias (it is `Invoke-WebRequest`). Use `Invoke-FkApi` via those scripts.
+- **Antigravity (policy A):** Flow kitchen only for refs, scene images, Veo, 4K. Host generate-image = storyboard/logo/draft only. Terminal → `scripts/ps`. Browser keeps Flow tab open; never CDP **9222**. Prefer `agy` for video review. Web search for `/fk-research`.
 
 ## Skills
 

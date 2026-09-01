@@ -152,6 +152,9 @@ def _write_antigravity_skill(skill, dest_dir):
         f"3. Follow Flow Kit rules: `media_id` is UUID, never write loop scripts, "
         f"use `POST /api/requests/batch`, run `/fk-doctor` on pipeline errors.\n"
         f"4. Do not invent a parallel workflow.\n"
+        f"5. Policy A: Terminal runs `scripts/ps/fk-*.ps1` on Windows. "
+        f"Do not use host generate-image for Flow refs, scene stills, or Veo. "
+        f"Browser may keep the Flow tab open; never CDP port 9222.\n"
     )
     (folder / "SKILL.md").write_text(content, encoding="utf-8")
 
@@ -293,6 +296,7 @@ _CRITICAL_RULES = """\
 13. **Scenes are mutable** — use `PATCH /api/scenes/{sid}` to update `prompt`, `video_prompt`, `narrator_text`, `character_names` after creation. Don't delete and recreate — patch instead.
 14. **Never duplicate in-flight videos** — before `GENERATE_VIDEO`, `GET /api/requests?video_id=<VID>`. Skip any `scene_id` that already has PENDING or PROCESSING (especially if `request_id` or `media_id` is set — worker is polling Flow). Do not POST a second request. Do not restart the agent to "unstick" PENDING while `processing > 0` or the error is `UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC` — wait and poll `/batch-status` every 180s.
 15. **Windows PowerShell** — execute `scripts/ps/fk-*.ps1` instead of skill bash recipes. Never emit bash (`sleep`, `/tmp`, `python3 -c`, `mkdir -p`). Never use the PowerShell `curl` alias (`Invoke-WebRequest`). POST JSON via the scripts (`Invoke-FkApi` / `Submit-FkBatch`), not `python3 -c` pipes.
+16. **Antigravity host vs Flow kitchen (policy A)** — Google Flow (agent `:8100` + Chrome extension) is the only path for entity refs, scene images, Veo clips, and 4K upscale (`GENERATE_*` / `media_id` UUID). Antigravity built-in **generate image** is allowed only for storyboards, moodboards, logo/icon files, and throwaway thumbnail *drafts* — never as a substitute for `/fk-gen-refs`, `/fk-gen-images`, `/fk-gen-videos`, or official `/fk-thumbnail` Flow stills. Use Antigravity **Terminal** to run `scripts/ps/fk-*.ps1`. Use **web search** for `/fk-research`. Use **browser** subagent to keep the Flow tab open for login/`/fk-refresh-urls` — do not click Generate in the Flow UI and do not attach Chrome DevTools to port **9222** (extension WebSocket). Prefer provider `agy` for `/fk-review-video` when the host is Antigravity.
 """
 
 _PIPELINE_OVERVIEW = """\
