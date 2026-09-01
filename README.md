@@ -54,6 +54,16 @@ Standalone system to generate AI videos via Google Flow API. Uses a Chrome exten
 
 **Hướng dẫn cho người không rành kỹ thuật:** [docs/HUONG-DAN-SU-DUNG.md](docs/HUONG-DAN-SU-DUNG.md)
 
+### 🇻🇳 Cập nhật tính năng mới (New Feature Updates)
+
+- **Extension Chrome hoạt động thụ động 100% (Passive Mode)**:
+  - Đã loại bỏ hoàn toàn các thao tác tự động click và cuộn trang (`click()` / `scrollTop`) của extension.
+  - Extension **không can thiệp** hay tự động mở video / modal trên tab Chrome của bạn. Bạn giữ quyền kiểm soát 100% giao diện tab Google Flow.
+- **API Lịch sử Tạo Video (`GET /api/flow/user-history`)**:
+  - Thêm endpoint `GET /api/flow/user-history` để truy xuất danh sách lịch sử tạo video/hình ảnh trực tiếp qua tRPC mà không phụ thuộc vào việc phải cuộn trang thủ công trên web.
+- **Tải & Làm mới URL Video (`/fk-refresh-urls` & `/fk-concat`)**:
+  - Khi các liên kết CDN của Google bị hết hạn (`Expires=`), giữ tab dự án Google Flow mở trên Chrome và gọi `/fk-refresh-urls` để cập nhật lại các URL đã ký hợp lệ trước khi thực hiện ghép video (`/fk-concat`).
+
 ## Showcase
 
 All outputs below were generated end-to-end by this system — from story concept to final YouTube-ready video with thumbnails, narration, and branding.
@@ -571,6 +581,7 @@ Or just run `/fk-change-provider` for an interactive picker. Full details in `sk
 | `GET /health` | Server + extension status |
 | `GET /api/flow/status` | Extension connection details |
 | `GET /api/flow/credits` | User credits + tier |
+| `GET /api/flow/user-history` | Fetch user generation history directly via tRPC |
 | `GET /api/requests/pending` | Pending request queue |
 | `GET /api/projects/{id}/characters` | Entities linked to project |
 

@@ -480,6 +480,8 @@ Khi không chắc, trong Claude gõ **`/fk-doctor`** và dán nguyên câu lỗi
 
 **Đừng** tự viết script vòng lặp tạo 40 cảnh. Trợ lý đã có cách gửi hàng loạt an toàn; tự spam dễ bị Google chặn (`UNUSUAL_ACTIVITY`). Nếu bị chặn: dừng gửi → xoá cookie `google.com` và `labs.google` trong cài đặt Chrome → login lại Flow → gửi chậm hơn.
 
+> **Lưu ý về Extension:** Extension của Flow Kit hoạt động **hoàn toàn thụ động (Passive Mode)** — không tự động bấm (`click`) hay cuộn trang (`scrollTop`) làm phiền bạn. Khi bạn bấm mở/xem clip trên tab Google Flow, extension sẽ tự động bắt các liên kết video đã ký hợp lệ để tải và ghép video.
+
 ---
 
 ## 11. Giới hạn cần biết
