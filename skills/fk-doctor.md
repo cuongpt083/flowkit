@@ -157,6 +157,21 @@ When the user describes a symptom in plain language, map it here first.
 | YouTube upload `invalidTags` | Tag-char overflow — quote overhead counts (spaces → +2 per tag) |
 | Python `cryptography` arch mismatch | Use `python3.10`, not `python3.13` (x86/arm64 binary mismatch) |
 | `curl: (7) Failed to connect to 127.0.0.1:8100` | Agent not running — `python -m agent.main` |
+| PowerShell `curl` weird output | Alias of `Invoke-WebRequest` | `.\scripts\ps\fk-doctor.ps1` or `curl.exe` |
+| Scripts disabled | ExecutionPolicy | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+| Port 9222 conflict | Chrome remote debugging | Leave Flow Kit WS on 9222; do not launch Chrome with that debug port |
+
+### G. Windows / PowerShell / Antigravity
+
+| Error / symptom | Cause | Fix |
+|-----------------|-------|-----|
+| `curl` returns HTML or unexpected object | PowerShell `curl` alias = `Invoke-WebRequest` | Use `Invoke-RestMethod`, `curl.exe`, or `.\scripts\ps\fk-*.ps1` |
+| `running scripts is disabled` | ExecutionPolicy Restricted | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` or `-ExecutionPolicy Bypass` |
+| `python3` / `python3.10` not found | Windows launcher is `python.exe` / `py -3` | `.\setup.ps1`; set `TTS_PYTHON_BIN` to venv `python.exe` |
+| Microsoft Store python stub | `WindowsApps\python.exe` | Install python.org and enable PATH |
+| Extension `false` but agent up | Chrome debug on **9222** or WSL localhost | Do not use `--remote-debugging-port=9222`; native agent + Windows Chrome share `127.0.0.1` |
+| `ffmpeg` not found | Not on PATH | `winget install Gyan.FFmpeg`, new PowerShell window |
+| Host generate-image used as ref | Policy A | Refs/scenes/Veo stay Flow; generate-image = storyboard/logo/draft only |
 
 ## Worker retry policy (`processor.py:_handle_failure`)
 

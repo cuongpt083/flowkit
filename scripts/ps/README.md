@@ -75,7 +75,7 @@ Do not translate the markdown ```bash``` blocks yourself.
 
 change-model, change-provider, add-material, doctor, upload-image, review-video, render-motion, gen-music, gen-tts-template, import-voice, gen-narrator, gen-text-overlays, review-board, youtube-upload.
 
-No twin: `fk-dashboard` (statusline.sh), docs-only guides, `fk-youtube-seo` / `fk-research` (host writing).
+`fk-dashboard.ps1` wires Claude `statusLine` to `scripts/statusline.ps1`. Docs-only / host-writing: research, story-telling, camera-guide, thumbnail-guide, creative-mix, youtube-seo.
 
 ## Orchestration twins (PR4)
 

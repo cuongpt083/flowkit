@@ -1,11 +1,20 @@
-"""PR2: HTTP pipeline skills must have a PowerShell twin."""
+"""Every executable fk-* skill has a PowerShell twin (or is policy-only)."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / "skills"
 PS = ROOT / "scripts" / "ps"
 
-# Shipped in PR2 + PR3.
+POLICY_ONLY = {
+    "research",
+    "story-telling-design",
+    "camera-guide",
+    "thumbnail-guide",
+    "creative-mix",
+    "youtube-seo",
+}
+
+# Shipped twins (PR2–PR6).
 PR2_TWINS = {
     "create-project",
     "gen-refs",
@@ -37,7 +46,16 @@ PR2_TWINS = {
     "gen-text-overlays",
     "review-board",
     "youtube-upload",
+    "dashboard",
 }
+
+
+def test_every_fk_skill_is_twin_or_policy_only():
+    names = {p.stem[len("fk-") :] for p in SKILLS.glob("fk-*.md")}
+    unknown = names - PR2_TWINS - POLICY_ONLY
+    assert not unknown, f"skills missing twin or allowlist: {sorted(unknown)}"
+    extra = POLICY_ONLY - names
+    assert not extra, f"allowlist names not on disk: {sorted(extra)}"
 
 
 def test_pr2_http_twins_exist():

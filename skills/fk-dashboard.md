@@ -4,7 +4,9 @@ Usage: `/fk-dashboard`
 
 ## Windows (PowerShell)
 
-`scripts/statusline.sh` is Unix-only (needs `jq` + bash). Skip this skill on native Windows or run it inside WSL. No `fk-dashboard.ps1` in this PR.
+    .\scripts\ps\fk-dashboard.ps1
+
+Writes `.claude/settings.local.json` `statusLine` to `scripts/statusline.ps1` (no jq). Unix still uses `scripts/statusline.sh`.
 
 The GLA statusline shows real-time project status at the bottom of Claude Code:
 

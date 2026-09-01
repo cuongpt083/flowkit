@@ -497,7 +497,12 @@ Khi không chắc, trong Claude gõ **`/fk-doctor`** và dán nguyên câu lỗi
 | Video kẹt **PROCESSING** quá lâu | Mạng / Flow chậm / job treo | `/fk-doctor` hoặc `/fk-status` — đừng bấm tạo lại hàng loạt |
 | Ảnh nhân vật mỗi cảnh một mặt | Quên ảnh mẫu hoặc mô tả lại ngoại hình trong cảnh | Làm xong `/fk-gen-refs` trước; cảnh chỉ viết hành động |
 | Link ảnh/video không mở được | Link Google hết hạn | `/fk-refresh-urls` |
-| Windows báo lệnh không chạy | Đang gõ trong CMD, hoặc `curl` là alias của PowerShell | Dùng **PowerShell** (`.\setup.ps1`, `Invoke-RestMethod`) — không dùng CMD. WSL/Git Bash vẫn được |
+| Windows báo lệnh không chạy | Đang gõ trong CMD, hoặc `curl` là alias của PowerShell | Dùng **PowerShell** (`.\setup.ps1`, `.\scripts\ps\fk-….ps1`) — không dùng CMD |
+| `running scripts is disabled` | ExecutionPolicy | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+| `python3` không có | Windows dùng `python` | `.\setup.ps1` (python.org, không Store) |
+| `ffmpeg` missing | Chưa cài / PATH cũ | `winget install Gyan.FFmpeg` rồi mở PowerShell mới |
+| Extension không nối agent | Cổng 9222 trùng Chrome debug, hoặc agent trong WSL | Chạy agent native Windows; đừng `--remote-debugging-port=9222` |
+| Antigravity vẽ ảnh nhưng clip Flow sai mặt | Dùng generate image thay `/fk-gen-refs` | Policy A: ref/ảnh cảnh/video **chỉ** Google Flow |
 
 **Đừng** tự viết script vòng lặp tạo 40 cảnh. Trợ lý đã có cách gửi hàng loạt an toàn; tự spam dễ bị Google chặn (`UNUSUAL_ACTIVITY`). Nếu bị chặn: dừng gửi → xoá cookie `google.com` và `labs.google` trong cài đặt Chrome → login lại Flow → gửi chậm hơn.
 

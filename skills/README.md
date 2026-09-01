@@ -59,6 +59,12 @@ python setup.py clean     # Remove generated configs
 
 **Windows PowerShell:** executable twins live in `scripts/ps/fk-*.ps1` (see `scripts/ps/README.md`). Agents on Windows must run those scripts instead of the bash recipes in each skill.
 
+| Twin | Notes |
+|------|--------|
+| `fk-create-project.ps1` … `fk-youtube-upload.ps1` | HTTP / ffmpeg / pipeline — listed in `scripts/ps/README.md` |
+| `fk-dashboard.ps1` | Writes Claude `statusLine` → `scripts/statusline.ps1` |
+| *(none)* | `fk-research`, `fk-story-telling-design`, `fk-camera-guide`, `fk-thumbnail-guide`, `fk-creative-mix`, `fk-youtube-seo`, `lite-continuity` — host/policy only |
+
 ---
 
 ## Full Example: "Luna the Space Cat" (3 scenes, vertical)
