@@ -23,6 +23,20 @@ PR2_TWINS = {
     "thumbnail",
     "pipeline",
     "monitor",
+    "change-model",
+    "change-provider",
+    "add-material",
+    "doctor",
+    "upload-image",
+    "review-video",
+    "render-motion",
+    "gen-music",
+    "gen-tts-template",
+    "import-voice",
+    "gen-narrator",
+    "gen-text-overlays",
+    "review-board",
+    "youtube-upload",
 }
 
 

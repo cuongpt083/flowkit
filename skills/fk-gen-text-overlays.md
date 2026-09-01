@@ -4,6 +4,12 @@ Analyze narrator text for each scene and extract key data points (dates, locatio
 
 Usage: `/fk-gen-text-overlays <video_id> [--language vi]`
 
+## Windows (PowerShell)
+
+Host builds JSON (this skill). Then:
+
+    .\scripts\ps\fk-gen-text-overlays.ps1 -VideoId <VID> -JsonPath overlays.json
+
 - `video_id` — the video to generate overlays for
 - `--language` — target language code (default: auto-detect from narrator text). **All overlay text MUST be in this language with proper diacritics/characters.**
 

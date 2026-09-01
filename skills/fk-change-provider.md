@@ -7,6 +7,12 @@ Usage:
 - `/fk-change-provider list` — show current provider status
 - `/fk-change-provider set <claude|agy|codex>` — switch active provider
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-change-provider.ps1 [-Set agy]
+
+Prefer `-Set agy` on Antigravity.
+
 ---
 
 ## Step 1: Show Current Status

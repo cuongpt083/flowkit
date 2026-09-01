@@ -4,6 +4,12 @@ Auto-generate documentary-style narrator text from scene video_prompts, then gen
 
 Usage: `/fk-gen-narrator <video_id> [--force] [--language vi] [--speed 1.1]`
 
+## Windows (PowerShell)
+
+Host writes narrator_text (this skill). Then:
+
+    .\scripts\ps\fk-gen-narrator.ps1 -VideoId <VID> [-TextsJson map.json] [-Template vi_male_narrator]
+
 Prepares audio for `/fk-concat-fit-narrator`.
 
 ## Step 1: Load project, video, scenes

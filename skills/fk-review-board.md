@@ -2,6 +2,12 @@ Start the Scene Review Board web app for visual feedback on scene chains.
 
 Usage: `/fk-review-board [<video_id>]`
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-review-board.ps1 [-VideoId <VID>]
+
+Uses `Start-Process` instead of `open` / `lsof`.
+
 ## What it does
 
 Launches `tools/review_server.py` on port 8200, serving `tools/review_board.html` — a visual review board where you can:

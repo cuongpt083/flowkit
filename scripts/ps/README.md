@@ -71,6 +71,12 @@ Do not translate the markdown ```bash``` blocks yourself.
 | `fk-brand-logo.ps1` | `/fk-brand-logo` |
 | `fk-thumbnail.ps1` | `/fk-thumbnail` |
 
+## Remaining HTTP twins (PR5)
+
+change-model, change-provider, add-material, doctor, upload-image, review-video, render-motion, gen-music, gen-tts-template, import-voice, gen-narrator, gen-text-overlays, review-board, youtube-upload.
+
+No twin: `fk-dashboard` (statusline.sh), docs-only guides, `fk-youtube-seo` / `fk-research` (host writing).
+
 ## Orchestration twins (PR4)
 
 | Script | Skill |

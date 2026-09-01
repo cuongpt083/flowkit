@@ -4,6 +4,10 @@ Render editorial explainer clips locally with ffmpeg. **No Veo / no paid video A
 
 Usage: `/fk-render-motion` (or set `render_mode` then `/fk-gen-videos`)
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-render-motion.ps1 -ProjectId <PID> [-VideoId <VID>]
+
 The Vox look is born in the **still**. Motion only adds one slow camera move. If the image is photoreal cinematic, the clip will look like a slideshow — use material `vox_collage`.
 
 ## When to use

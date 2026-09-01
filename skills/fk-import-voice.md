@@ -11,7 +11,11 @@ Register an existing WAV file as a reusable voice template for narration. Auto-t
 ## Prerequisites
 
 - GLA server running: `curl http://127.0.0.1:8100/health`
-- `faster-whisper` installed in `/opt/homebrew/bin/python3.10`
+- `faster-whisper` installed in the TTS Python (Windows: `Get-FkPython` / `TTS_PYTHON_BIN`, not `/opt/homebrew/bin/python3.10`)
+
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-import-voice.ps1 -Name vi_male_narrator -WavPath C:\voice.wav -Text "<transcript>" [-TestSentence "..."]
 - WAV file placed in `output/_shared/tts_templates/`
 
 ## Workflow

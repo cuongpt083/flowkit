@@ -4,6 +4,12 @@ Upload videos to YouTube with channel rule enforcement, auto-scheduling, and bat
 
 Usage: `/fk-youtube-upload <channel_name> <video_path_or_dir> [--schedule "time"] [--batch] [--dry-run]`
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-youtube-upload.ps1 -ChannelName <ch> [-Auth]
+
+Then call `youtube.upload.upload_video` from Python as below (no bash).
+
 ## Step 1: Parse input and detect video type
 
 ```bash

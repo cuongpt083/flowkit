@@ -2,6 +2,10 @@ Upload a local image file to Google Flow and get a media_id (UUID).
 
 Usage: `/fk-upload-image <file_path> [--project <project_id>] [--entity <entity_id>]`
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-upload-image.ps1 -FilePath C:\path\icon.png [-ProjectId <PID>] [-EntityId <EID>]
+
 Useful for: setting channel icons, covers, or any local image as an entity reference or scene image.
 
 **Antigravity policy A:** Host generate-image may produce **logos / icons / storyboards** that you then upload here. Do **not** use generate-image + upload as a shortcut for `/fk-gen-refs` or `/fk-gen-images` unless the user explicitly asks to inject a local file. Default pipeline still generates refs and scene stills in Google Flow.

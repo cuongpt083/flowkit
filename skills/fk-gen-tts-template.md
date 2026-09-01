@@ -14,7 +14,14 @@ Create a reusable voice template for consistent narration across all scenes.
 OmniVoice is a multilingual zero-shot TTS model (600+ languages) with voice cloning.
 Source: https://github.com/tuannguyenhoangit-droid/OmniVoice
 
-> **Windows users:** Run all setup commands inside **WSL** or **Git Bash** (not CMD/PowerShell). The project's `setup.sh` and all bash scripts require a Unix shell.
+> **Windows users:** OmniVoice install still uses pip in the agent venv (`TTS_PYTHON_BIN`). Template **API** twin:
+
+    .\scripts\ps\fk-gen-tts-template.ps1 -List
+    .\scripts\ps\fk-gen-tts-template.ps1 -Name vi_male_narrator -Text "..." -Instruct "male, moderate pitch, young adult"
+
+## Windows (PowerShell)
+
+See commands above. Do not use Homebrew `/opt/homebrew/bin/python3.10`.
 
 **Step 1 — Install PyTorch** (in a fresh venv recommended):
 

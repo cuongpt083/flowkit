@@ -2,6 +2,12 @@
 
 Generate background music or songs for video projects using the Suno API (sunoapi.org).
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-gen-music.ps1 -ListTemplates
+    .\scripts\ps\fk-gen-music.ps1 -JsonPath generate.json
+    .\scripts\ps\fk-gen-music.ps1 -TaskId <id> [-Download]
+
 ## Prerequisites
 
 - GLA server running: `curl http://127.0.0.1:8100/health`

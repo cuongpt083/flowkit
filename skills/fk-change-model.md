@@ -9,6 +9,10 @@ Usage:
 - `/fk-change-model image <model_key>` — change image model
 - `/fk-change-model upscale <model_key>` — change upscale model
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-change-model.ps1 [-Preset lite-lp|lite|leaving|ultra] [-PatchJson models.json]
+
 ---
 
 ## Step 1: Show Current Models

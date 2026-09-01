@@ -2,6 +2,10 @@
 
 Image Material controls the **visual style** of every image generated in a project — both entity reference images and scene images. Set it once at project creation; it applies automatically to all generations.
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-add-material.ps1 [-JsonPath material.json] [-DeleteId watercolor]
+
 ## What Is Image Material?
 
 Each material is a named style profile with:

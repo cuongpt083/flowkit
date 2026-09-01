@@ -23,6 +23,12 @@ Diagnose any FlowKit error and prescribe a fix. Knows the full error taxonomy ac
 - `/fk-doctor <request_id>` — diagnose a single request by ID
 - `/fk-doctor "<error message>"` — lookup a specific error string and return the handling playbook
 
+## Windows (PowerShell)
+
+    .\scripts\ps\fk-doctor.ps1 [-RequestId <RID>]
+
+Prints health + FAILED/PROCESSING. Apply the taxonomy in this file. On Windows: `python -m agent.main`, never the `curl` alias, never CDP port 9222.
+
 ## How to work
 
 You are the on-call doctor for the FlowKit pipeline. Never guess — always consult the taxonomy below and the actual code. When the user reports a symptom:
