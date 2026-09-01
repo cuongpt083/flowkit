@@ -133,10 +133,10 @@ $VenvDir = Join-Path $Root 'venv'
 $VenvPython = Join-Path $VenvDir 'Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $VenvPython)) {
     & $Python -m venv $VenvDir
-    Write-Host '  Created: venv\'
+    Write-Host '  Created: venv'
 }
 else {
-    Write-Host '  Exists: venv\'
+    Write-Host '  Exists: venv'
 }
 
 Write-Host 'Installing Python dependencies...'
@@ -165,26 +165,29 @@ Write-Host ''
 Write-Host '========================================='
 Write-Host '  Setup complete!'
 Write-Host '========================================='
-Write-Host ''
-Write-Host 'Next steps:'
-Write-Host ''
-Write-Host '  1. Load Chrome extension:'
-Write-Host '     chrome://extensions → Developer mode → Load unpacked → extension\'
-Write-Host ''
-Write-Host '  2. Open Google Flow:'
-Write-Host '     https://labs.google/fx/tools/flow (sign in)'
-Write-Host ''
-Write-Host '  3. Start the agent (this window):'
-Write-Host '     .\venv\Scripts\Activate.ps1'
-Write-Host '     python -m agent.main'
-Write-Host ''
-Write-Host '  4. Verify (new window):'
-Write-Host '     Invoke-RestMethod http://127.0.0.1:8100/health'
-Write-Host '     # {"status":"ok","extension_connected":true}'
-Write-Host ''
-Write-Host '  Optional AI tool configs:'
-Write-Host '     python setup.py'
-Write-Host ''
-Write-Host '  PowerShell skill twins: scripts\ps\  (see scripts\ps\README.md)'
-Write-Host '  Claude statusline (Windows): .\scripts\ps\fk-dashboard.ps1'
-Write-Host ''
+Write-Host @'
+
+Next steps:
+
+  1. Load Chrome extension:
+     chrome://extensions  then  Developer mode  then  Load unpacked  then  the extension folder
+
+  2. Open Google Flow and sign in:
+     https://labs.google/fx/tools/flow
+
+  3. Start the agent (this window):
+     .\venv\Scripts\Activate.ps1
+     python -m agent.main
+
+  4. Verify (new window):
+     Invoke-RestMethod http://127.0.0.1:8100/health
+     Expect extension_connected true
+
+  Optional AI tool configs:
+     python setup.py
+
+  PowerShell skill twins: scripts\ps\  (see scripts\ps\README.md)
+  Claude statusline (Windows): .\scripts\ps\fk-dashboard.ps1
+
+'@
+
