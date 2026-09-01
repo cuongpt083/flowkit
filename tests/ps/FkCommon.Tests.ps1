@@ -59,6 +59,8 @@ Assert-True 'concat entry spaces kept' ($entry -eq "file 'D:/flow kit/scene.mp4'
 # UUID
 $fromUrl = Get-FkUuidFromUrl 'https://lh3.googleusercontent.com/image/a1b2c3d4-e5f6-7890-abcd-ef1234567890?foo=1'
 Assert-True 'uuid from /image/ URL' ($fromUrl -eq 'a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+Assert-True 'signed url future Expires' (Test-FkSignedUrl 'https://x/video/a?Expires=4102444800')
+Assert-True 'unsigned url rejected' (-not (Test-FkSignedUrl 'https://x/video/uuid'))
 $one = ConvertTo-FkArray ([pscustomobject]@{ id = 1 })
 Assert-True 'ConvertTo-FkArray wraps scalar' ($one.Count -eq 1)
 Assert-True 'Get-FkProp missing default' ((Get-FkProp ([pscustomobject]@{ a = 1 }) 'b' 'x') -eq 'x')

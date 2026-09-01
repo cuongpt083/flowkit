@@ -62,7 +62,16 @@ Do not translate the markdown ```bash``` blocks yourself.
 | `fk-insert-scene.ps1` | `/fk-insert-scene` |
 | `fk-fix-uuids.ps1` | `/fk-fix-uuids` |
 
-ffmpeg twins (`fk-concat.ps1`, …) are a later PR. This folder always contains `FkCommon.psm1`.
+## ffmpeg twins (PR3)
+
+| Script | Skill |
+|--------|--------|
+| `fk-concat.ps1` | `/fk-concat` (`-WithTts` `-FourK` `-HardCut`) |
+| `fk-concat-fit-narrator.ps1` | `/fk-concat-fit-narrator` |
+| `fk-brand-logo.ps1` | `/fk-brand-logo` |
+| `fk-thumbnail.ps1` | `/fk-thumbnail` |
+
+This folder always contains `FkCommon.psm1`.
 
 ## Tests
 

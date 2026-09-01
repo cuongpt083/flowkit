@@ -416,6 +416,115 @@ function Get-FkInFlightSceneIds {
     return , $set
 }
 
+function Resolve-FkOutputDir {
+    param([Parameter(Mandatory = $true)][string]$ProjectId)
+    $meta = Invoke-FkApi -Method GET -Path ('/api/projects/' + $ProjectId + '/output-dir')
+    $rel = [string](Get-FkProp $meta 'path')
+    $slug = [string](Get-FkProp $meta 'slug')
+    if ([string]::IsNullOrWhiteSpace($rel)) { throw "output-dir missing path for $ProjectId" }
+    $path = $rel -replace '/', '\'
+    if (-not [IO.Path]::IsPathRooted($path)) {
+        $path = Join-Path (Get-FkRoot) $path
+    }
+    New-FkDirectory -LiteralPath $path | Out-Null
+    return @{ Path = $path; Slug = $slug; Meta = $meta }
+}
+
+function Get-FkDurationSec {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+    $exe = Get-FkToolPath 'ffprobe'
+    if (-not $exe) { throw 'ffprobe not found on PATH' }
+    $out = & $exe -v quiet -show_entries format=duration -of csv=p=0 $LiteralPath
+    if ($LASTEXITCODE -ne 0) { throw "ffprobe duration failed: $LiteralPath" }
+    $s = ("$out").Trim()
+    if ([string]::IsNullOrWhiteSpace($s)) { throw "ffprobe empty duration: $LiteralPath" }
+    return [double]$s
+}
+
+function Get-FkVideoWidth {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+    $exe = Get-FkToolPath 'ffprobe'
+    if (-not $exe) { throw 'ffprobe not found on PATH' }
+    $out = & $exe -v quiet -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $LiteralPath
+    if ($LASTEXITCODE -ne 0) { throw "ffprobe size failed: $LiteralPath" }
+    $parts = ("$out").Trim().Split(',')
+    $w = [int]$parts[0]
+    $h = 0
+    if ($parts.Count -gt 1) { $h = [int]$parts[1] }
+    return @{ Width = $w; Height = $h }
+}
+
+function Test-FkMediaFile {
+    param(
+        [string]$LiteralPath,
+        [int]$MinBytes = 10000
+    )
+    if ([string]::IsNullOrWhiteSpace($LiteralPath)) { return $false }
+    if (-not (Test-Path -LiteralPath $LiteralPath)) { return $false }
+    $len = (Get-Item -LiteralPath $LiteralPath).Length
+    if ($len -lt $MinBytes) { return $false }
+    $exe = Get-FkToolPath 'ffprobe'
+    if (-not $exe) { return $false }
+    & $exe -v quiet -select_streams v:0 -show_entries stream=codec_type -of csv=p=0 $LiteralPath | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Test-FkSignedUrl {
+    param([string]$Url)
+    if ([string]::IsNullOrWhiteSpace($Url)) { return $false }
+    if ($Url -notmatch 'Expires=(\d+)') { return $false }
+    $exp = [int64]$Matches[1]
+    $now = [int64](((Get-Date).ToUniversalTime() - [datetime]'1970-01-01').TotalSeconds)
+    return ($exp -gt $now)
+}
+
+function Invoke-FkXfadeChain {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Inputs,
+        [Parameter(Mandatory = $true)][string]$Output,
+        [double]$Xfade = 0.4
+    )
+    if ($Inputs.Count -eq 1) {
+        Copy-Item -LiteralPath $Inputs[0] -Destination $Output -Force
+        return
+    }
+    $exe = Get-FkToolPath 'ffmpeg'
+    if (-not $exe) { throw 'ffmpeg not found on PATH' }
+    $ffArgs = New-Object System.Collections.Generic.List[string]
+    [void]$ffArgs.Add('-y')
+    foreach ($inp in $Inputs) {
+        [void]$ffArgs.Add('-i')
+        [void]$ffArgs.Add($inp)
+    }
+    $durs = New-Object System.Collections.Generic.List[double]
+    foreach ($inp in $Inputs) { [void]$durs.Add((Get-FkDurationSec -LiteralPath $inp)) }
+    $vfilters = New-Object System.Collections.Generic.List[string]
+    $afilters = New-Object System.Collections.Generic.List[string]
+    $cum = [double]$durs[0]
+    $n = $Inputs.Count
+    for ($i = 0; $i -lt ($n - 1); $i++) {
+        $offset = $cum - $Xfade
+        if ($offset -lt 0) { $offset = 0 }
+        if ($i -eq 0) { $vin = '[0:v][1:v]'; $ain = '[0:a][1:a]' }
+        else { $vin = "[v$i][$($i+1):v]"; $ain = "[a$i][$($i+1):a]" }
+        if ($i -eq ($n - 2)) { $vout = '[vout]'; $aout = '[aout]' }
+        else { $vout = "[v$($i+1)]"; $aout = "[a$($i+1)]" }
+        [void]$vfilters.Add(('{0}xfade=transition=fade:duration={1}:offset={2}{3}' -f $vin, $Xfade, $offset, $vout))
+        [void]$afilters.Add(('{0}acrossfade=d={1}{2}' -f $ain, $Xfade, $aout))
+        $cum = $offset + [double]$durs[$i + 1]
+    }
+    $fc = (@($vfilters) + @($afilters)) -join ';'
+    [void]$ffArgs.Add('-filter_complex')
+    [void]$ffArgs.Add($fc)
+    [void]$ffArgs.Add('-map'); [void]$ffArgs.Add('[vout]')
+    [void]$ffArgs.Add('-map'); [void]$ffArgs.Add('[aout]')
+    foreach ($x in @('-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', $Output)) {
+        [void]$ffArgs.Add($x)
+    }
+    & $exe @($ffArgs.ToArray())
+    if ($LASTEXITCODE -ne 0) { throw "ffmpeg xfade failed for $Output" }
+}
+
 Export-ModuleMember -Function @(
     'Get-FkRoot',
     'Get-FkBaseUrl',
@@ -447,5 +556,11 @@ Export-ModuleMember -Function @(
     'Resolve-FkProjectId',
     'Resolve-FkVideo',
     'Submit-FkBatch',
-    'Get-FkInFlightSceneIds'
+    'Get-FkInFlightSceneIds',
+    'Resolve-FkOutputDir',
+    'Get-FkDurationSec',
+    'Get-FkVideoWidth',
+    'Test-FkMediaFile',
+    'Test-FkSignedUrl',
+    'Invoke-FkXfadeChain'
 )

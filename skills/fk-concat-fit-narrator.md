@@ -2,6 +2,14 @@ Trim each scene video to fit its TTS narrator duration, burn text overlays, then
 
 Usage: `/fk-concat-fit-narrator <video_id> [--buffer 0.5] [--4k]`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-concat-fit-narrator.ps1 -VideoId <VID> [-Buffer 0.5] [-FourK]
+
+Policy in this file still applies.
+
 Default: trims each scene to `narrator_duration + 0.5s`, preserves 4K, mixes SFX + TTS, burns text overlay from `text_overlays.json`.
 
 ## Step 1: Get project, video, and scenes

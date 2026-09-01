@@ -2,6 +2,14 @@ Download and concatenate all scene videos into a single video with optional TTS 
 
 Usage: `/fk-concat <video_id> [--with-tts] [--4k] [--hard-cut]`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-concat.ps1 -VideoId <VID> [-WithTts] [-FourK] [-HardCut]
+
+Policy in this file still applies (trim/xfade/loudnorm; never GENERATE_VIDEO from concat).
+
 Default: uses best available quality (4K upscale > regular video), preserves original audio.
 
 **Continuity (always on unless `--hard-cut`):** trim 0.4s off head and tail of each clip, `xfade=0.4` + `acrossfade` inside a CONTINUATION chain, hard cut between ROOT segments, then `loudnorm`. Lite policy: `skills/lite-continuity.md`. Do not `ffmpeg concat -c copy` raw 8s clips — that is what makes cuts feel spliced.

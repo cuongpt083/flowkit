@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / "skills"
 PS = ROOT / "scripts" / "ps"
 
-# Shipped in PR2.
+# Shipped in PR2 + PR3.
 PR2_TWINS = {
     "create-project",
     "gen-refs",
@@ -17,6 +17,10 @@ PR2_TWINS = {
     "refresh-urls",
     "insert-scene",
     "fix-uuids",
+    "concat",
+    "concat-fit-narrator",
+    "brand-logo",
+    "thumbnail",
 }
 
 

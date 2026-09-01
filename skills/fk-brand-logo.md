@@ -4,6 +4,14 @@ Full channel branding: prepend intro, append outro, overlay brand logo, and add 
 
 Usage: `/fk-brand-logo <channel_name> <video_path> [--size 220] [--thumbnails] [--no-intro] [--no-outro]`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-brand-logo.ps1 -ChannelName <name> -VideoPath <mp4> [-Size 220] [-Thumbnails -ProjectId <PID>] [-NoIntro] [-NoOutro]
+
+Temp files use `$env:TEMP\flowkit`, not `/tmp`. Policy in this file still applies.
+
 - `channel_name` — matches directory under `youtube/channels/<channel_name>/`
 - `video_path` — the final video to brand (e.g., `output/.../slug_narrator_cut.mp4`)
 - `--size N` — override brand logo size (default: auto-detect from resolution)

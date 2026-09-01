@@ -2,6 +2,14 @@ Generate 4 YouTube-optimized thumbnail variants for a project video.
 
 Usage: `/fk-thumbnail [project_id]`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. Write four prompt strings (this skill), then:
+
+    .\scripts\ps\fk-thumbnail.ps1 -ProjectId <PID> -PromptsJson .\thumb_prompts.json [-CharacterNames Hero,Villain]
+
+`thumb_prompts.json` is a JSON array of 4 prompt strings. The script POSTs `/generate-thumbnail` then ffmpeg-resizes to 1280x720. Policy in this file still applies.
+
 ## Step 1: Load project context
 
 ```bash
