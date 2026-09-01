@@ -200,9 +200,16 @@ A local React dashboard (`dashboard/`) for monitoring and driving the pipeline �
 ./setup.sh
 ```
 
+Windows PowerShell 5.1+ (Windows 10 / 11, no WSL required):
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+.\setup.ps1
+```
+
 This checks and installs: Python 3.10+, pip, ffmpeg, ffprobe, Chrome, creates venv, installs dependencies, verifies imports.
 
-> **Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (`wsl --install`) or Git Bash. All bash scripts and commands assume a Unix shell.
+> **Windows:** Native setup is `.\setup.ps1` in PowerShell. [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) and Git Bash still work with `./setup.sh`. Do not use CMD. Skill twins live in `scripts/ps/` — see `scripts/ps/README.md`.
 
 ### Manual setup
 
@@ -217,11 +224,13 @@ pip install -r requirements.txt
 # 1. Load Chrome extension: chrome://extensions → Developer mode → Load unpacked → extension/
 # 2. Open https://labs.google/fx/tools/flow and sign in
 # 3. Start agent
-source venv/bin/activate   # if using setup.sh
+source venv/bin/activate        # macOS / Linux / WSL
+# .\venv\Scripts\Activate.ps1   # Windows PowerShell
 python -m agent.main
 
 # 4. Verify
 curl http://127.0.0.1:8100/health
+# Windows PowerShell: Invoke-RestMethod http://127.0.0.1:8100/health
 # {"status":"ok","extension_connected":true}
 ```
 
@@ -724,7 +733,7 @@ Automated upload with per-channel rules, SEO optimization, and brand watermarkin
 cp client_secrets.json youtube/channels/<channel_name>/
 
 # 2. Authenticate (opens browser)
-python3 youtube/auth.py <channel_name>              # Linux / Windows (WSL)
+python3 youtube/auth.py <channel_name>              # Linux / Windows (PowerShell or WSL)
 arch -arm64 python3 youtube/auth.py <channel_name>  # macOS Apple Silicon
 
 # 3. Token saved to youtube/channels/<channel_name>/token.json (auto-refreshes)

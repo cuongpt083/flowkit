@@ -2,6 +2,14 @@ Show full status dashboard for a project.
 
 Usage: `/fk-status <project_id>` or `/fk-status` (lists all projects)
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-status.ps1 [-ProjectId <PID>]
+
+Policy in this file still applies.
+
 ## If no project_id: list all projects
 
 ```bash

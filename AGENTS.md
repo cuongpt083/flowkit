@@ -27,6 +27,7 @@ curl -s http://127.0.0.1:8100/health
 12. **Character dialogue in sub-clips** — embed speech in quotes: `Luna says "Goodnight."` Max 10-15 words per character per 2-3s segment.
 13. **Scenes are mutable** — use `PATCH /api/scenes/{sid}` to update `prompt`, `video_prompt`, `narrator_text`, `character_names` after creation. Don't delete and recreate — patch instead.
 14. **Never duplicate in-flight videos** — before `GENERATE_VIDEO`, `GET /api/requests?video_id=<VID>`. Skip any `scene_id` that already has PENDING or PROCESSING (especially if `request_id` or `media_id` is set — worker is polling Flow). Do not POST a second request. Do not restart the agent to "unstick" PENDING while `processing > 0` or the error is `UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC` — wait and poll `/batch-status` every 180s.
+15. **Windows PowerShell** — execute `scripts/ps/fk-*.ps1` instead of skill bash recipes. Never emit bash (`sleep`, `/tmp`, `python3 -c`, `mkdir -p`). Never use the PowerShell `curl` alias (`Invoke-WebRequest`). POST JSON via the scripts (`Invoke-FkApi` / `Submit-FkBatch`), not `python3 -c` pipes.
 
 ## Pipeline Order
 

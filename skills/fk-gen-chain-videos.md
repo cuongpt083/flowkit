@@ -2,6 +2,14 @@ Generate videos with automatic scene chaining (start+end frame transitions).
 
 Usage: `/gen-chain-videos <project_id> <video_id>`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-gen-chain-videos.ps1 -ProjectId <PID> [-VideoId <VID>]
+
+Policy in this file still applies (child image as endImage, not parent).
+
 This creates smooth transitions between scenes in a chain by using the **NEXT scene's image as the endImage** of the current scene's video, so the last frame of scene N matches the first frame of scene N+1 → seamless concat.
 
 ## How chaining works

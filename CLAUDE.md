@@ -17,6 +17,7 @@ curl -s http://127.0.0.1:8100/health
 - **Do not duplicate in-flight videos.** `GET /api/requests?video_id=<VID>` first. If a scene already has PENDING/PROCESSING (especially with `request_id`/`media_id`), do not POST another `GENERATE_VIDEO`. Do not restart the agent to "unstick" PENDING while `processing > 0` or on `UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC` — wait.
 - `media_id` is always UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`), never `CAMS...` strings. Missing ids/urls may be JSON `null` — use `(s.get("horizontal_video_url") or "")[:40]`, never `s.get(..., "")[:n]`.
 - **On any pipeline error** (request `FAILED`, stuck `PROCESSING`, `extension_connected: false`, HTTP 4xx/5xx from `:8100`, YouTube `HttpError`, error strings like `UNSAFE_GENERATION` / `not found` / `CAPTCHA` / `NO_FLOW_KEY`): invoke `/fk-doctor` before guessing a fix
+- **Windows PowerShell:** execute `scripts/ps/fk-*.ps1` instead of the skill ```bash``` blocks. Never emit bash (`sleep`, `/tmp`, `python3 -c`, `mkdir -p`). Never use the PowerShell `curl` alias (it is `Invoke-WebRequest`). Use `Invoke-FkApi` via those scripts.
 
 ## Skills
 

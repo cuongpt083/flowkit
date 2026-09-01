@@ -2,6 +2,14 @@ Find and fix any non-UUID media_ids (CAMS... format) across all scenes and entit
 
 Usage: `/fix-uuids <project_id> <video_id>`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-fix-uuids.ps1 -ProjectId <PID> [-VideoId <VID>]
+
+Policy in this file still applies.
+
 ## Step 1: Check entities
 
 ```bash

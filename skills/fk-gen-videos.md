@@ -2,6 +2,14 @@ Generate videos for all scenes in a video.
 
 Usage: `/fk-gen-videos <project_id> <video_id>`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-gen-videos.ps1 -ProjectId <PID> [-VideoId <VID>]
+
+Poll interval is 180s. Policy, abort conditions, and in-flight skip rules in this file still apply.
+
 ## Step 0: Detect orientation
 
 ```bash

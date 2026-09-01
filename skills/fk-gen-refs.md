@@ -4,6 +4,14 @@ Usage: `/fk-gen-refs <project_id>`
 
 If no project_id provided, use `GET /api/active-project` or list projects via `GET /api/projects`.
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-gen-refs.ps1 [-ProjectId <PID>] [-Regenerate]
+
+Policy, abort conditions, and pipeline order in this file still apply.
+
 ## Step 1: Check health
 
 ```bash

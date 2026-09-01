@@ -57,6 +57,8 @@ python setup.py clean     # Remove generated configs
 
 **Adding a new skill:** Create `skills/fk-<name>.md`, then run `python setup.py sync`.
 
+**Windows PowerShell:** executable twins live in `scripts/ps/fk-*.ps1` (see `scripts/ps/README.md`). Agents on Windows must run those scripts instead of the bash recipes in each skill.
+
 ---
 
 ## Full Example: "Luna the Space Cat" (3 scenes, vertical)

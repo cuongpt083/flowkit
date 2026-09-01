@@ -7,6 +7,14 @@ Usage:
 - `/fk-switch-project <project_id>` — switch to a specific project by ID
 - `/fk-switch-project clear` — clear active project (revert to most-recent fallback)
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-switch-project.ps1 [-List] [-ProjectId <PID>] [-Clear]
+
+Policy in this file still applies.
+
 ---
 
 ## Step 1: List Available Projects

@@ -2,6 +2,14 @@ Refresh expired GCS signed URLs for all scenes in a video (images, videos, upsca
 
 Usage: `/fk-refresh-urls <video_id> [--project-id <PID>]`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-refresh-urls.ps1 -VideoId <VID> [-ProjectId <PID>]
+
+Policy in this file still applies.
+
 ## When to use
 
 - Before `/fk-review-video` if videos were generated hours ago (GCS signed URLs expire)

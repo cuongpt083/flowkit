@@ -1,12 +1,15 @@
 """Tests for Ken Burns / motion-graphic still → clip."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from agent.services.post_process import (
     _zoompan_expr,
     estimate_motion_duration,
+    format_concat_entry,
     image_to_motion_clip,
     infer_motion_preset,
+    merge_videos,
 )
 
 
@@ -96,3 +99,30 @@ def test_zoompan_expr_protects_top_and_limits_zoom():
     assert "1.08" in expr
     assert "0.12" in expr
     assert _zoompan_expr("hold", 48).startswith("z='1.04'")
+
+
+def test_format_concat_entry_uses_forward_slashes_and_escapes_quotes():
+    assert format_concat_entry(r"C:\Users\Admin\clip.mp4") == "file 'C:/Users/Admin/clip.mp4'"
+    assert format_concat_entry(r"C:\Users\Admin\a'b.mp4") == "file 'C:/Users/Admin/a'\\''b.mp4'"
+    assert format_concat_entry("/tmp/scene 1.mp4") == "file '/tmp/scene 1.mp4'"
+
+
+def test_merge_videos_writes_posix_concat_list(tmp_path):
+    out = tmp_path / "merged.mp4"
+    fake = MagicMock(returncode=0)
+    clips = [r"C:\Users\Admin\a.mp4", r"C:\Users\Admin\b.mp4"]
+    captured = {}
+
+    def _run(cmd, **kwargs):
+        concat_path = cmd[cmd.index("-i") + 1]
+        captured["text"] = Path(concat_path).read_text(encoding="utf-8")
+        captured["cmd"] = cmd
+        return fake
+
+    with patch("agent.services.post_process.subprocess.run", side_effect=_run):
+        assert merge_videos(clips, str(out)) is True
+
+    assert "file 'C:/Users/Admin/a.mp4'\n" in captured["text"]
+    assert "file 'C:/Users/Admin/b.mp4'\n" in captured["text"]
+    assert "\\" not in captured["text"]
+    assert not Path(str(out) + ".concat.txt").exists()

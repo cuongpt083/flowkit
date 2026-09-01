@@ -2,6 +2,14 @@ Insert new scene(s) into an existing video chain — for multi-angle shots, cuta
 
 Usage: `/insert-scene <video_id> <after_scene_order> <prompt>`
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-insert-scene.ps1 -VideoId <VID> -AfterOrder <N> -Prompt "..." 
+
+The API auto-shifts later `display_order` values. Do not PATCH subsequent scenes. Policy in this file still applies.
+
 Example: `/insert-scene abc123 2 "Close-up of Hero's hand gripping Magic Sword, determination in eyes"`
 
 This inserts a new scene AFTER the specified scene order, shifts subsequent scenes, and maintains the chain.

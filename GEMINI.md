@@ -29,6 +29,7 @@ curl -s http://127.0.0.1:8100/health
 14. **Fact-check before scripting** — ALWAYS research events via web search before writing project stories, scene prompts, or narrator text. Facts (events, dates, names, operations, outcomes) MUST match real sources. Editorial opinion and analysis are allowed but must be framed as such. Never invent events, operation names, or statistics.
 15. **Real-people bypass** — when characters are based on real famous people (politicians, celebrities, military leaders), NEVER use their real name as entity `name` or anywhere in `description`, `image_prompt`, `prompt`, or `video_prompt`. AI image generators reject known public figures. Instead: (a) use a **role-based alias** as entity name (e.g. "Tổng Tư Lệnh" not "Trump", "Thủ Tướng Sắt" not "Netanyahu"), (b) describe **physical appearance only** — distinctive hair, face shape, build, clothing style — without naming who it is, (c) `narrator_text` may use real titles/roles for storytelling but real names never flow into image/video generation. Keep a `real_reference` mapping in the project plan file (`.omc/research/`) for internal tracking.
 16. **Review before upscale** — ALWAYS run `/fk-review-video` (light mode) after video generation, before upscaling. Scenes scoring < 7.5 get `video_prompt` updated from review errors, then regen video. Max 2 review-regen cycles.
+17. **Windows PowerShell** — execute `scripts/ps/fk-*.ps1` instead of skill bash recipes. Never emit bash (`sleep`, `/tmp`, `python3 -c`, `mkdir -p`). Never use the PowerShell `curl` alias.
 
 ## Pipeline Order
 

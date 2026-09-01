@@ -15,6 +15,15 @@ Ask the user for:
 
 Then execute:
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. Write the project JSON (prompts still follow this skill), then:
+
+    .\scripts\ps\fk-create-project.ps1 -JsonPath .\project.json
+    .\scripts\ps\fk-create-project.ps1 -ListMaterials
+
+JSON: `{ "project": { name, story, material, characters }, "video": { title }, "scenes": [ { display_order, prompt, video_prompt, character_names, chain_type, parent_display_order } ] }`. Policy in this file still applies.
+
 ## Lite Continuity (Veo 3.1 Lite)
 
 If `GET /api/models` uses `veo_3_1_i2v_lite` or `veo_3_1_i2v_lite_low_priority`, **read and apply** `skills/lite-continuity.md` before writing scenes.

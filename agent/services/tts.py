@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -11,8 +12,25 @@ from agent.config import TTS_MODEL, TTS_SAMPLE_RATE
 
 logger = logging.getLogger(__name__)
 
-# Default to python3.10 (has torch/torchaudio/omnivoice); override with TTS_PYTHON_BIN if needed
-PYTHON_BIN = os.environ.get("TTS_PYTHON_BIN", "python3.10")
+
+def get_tts_python_bin() -> str:
+    """Interpreter that has OmniVoice installed.
+
+    ``TTS_PYTHON_BIN`` always wins. On Windows, default to this process's
+    ``sys.executable`` (``python3.10`` is not on PATH). Unix keeps the
+    historical ``python3.10`` default for Homebrew / pyenv layouts.
+    """
+    override = os.environ.get("TTS_PYTHON_BIN")
+    if override:
+        return override
+    if os.name == "nt":
+        return sys.executable
+    return "python3.10"
+
+
+# Resolved at import for callers that still read PYTHON_BIN; subprocesses
+# call get_tts_python_bin() so tests can patch the environment.
+PYTHON_BIN = get_tts_python_bin()
 
 # Inline script template for TTS generation via subprocess
 _TTS_SCRIPT = """
@@ -111,7 +129,7 @@ async def generate_speech(
 def _run_tts_subprocess(args: dict) -> dict:
     """Run TTS subprocess."""
     proc = subprocess.run(
-        [PYTHON_BIN, "-c", _TTS_SCRIPT, json.dumps(args)],
+        [get_tts_python_bin(), "-c", _TTS_SCRIPT, json.dumps(args)],
         capture_output=True, text=True, timeout=120,
     )
     if proc.returncode != 0:
@@ -240,7 +258,7 @@ def _run_batch_subprocess(args: dict) -> list[dict]:
     """Run batch TTS subprocess. Model loads once."""
     timeout = 180 + len(args.get("items", [])) * 45  # ~180s model load + ~45s per scene
     proc = subprocess.run(
-        [PYTHON_BIN, "-c", _TTS_BATCH_SCRIPT, json.dumps(args)],
+        [get_tts_python_bin(), "-c", _TTS_BATCH_SCRIPT, json.dumps(args)],
         capture_output=True, text=True, timeout=timeout,
     )
     if proc.returncode != 0:

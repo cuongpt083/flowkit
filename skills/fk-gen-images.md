@@ -4,6 +4,14 @@ Usage: `/fk-gen-images <project_id> <video_id>`
 
 If not provided, ask or list projects/videos.
 
+## Windows (PowerShell)
+
+Do not run the bash recipes below. From the repo root:
+
+    .\scripts\ps\fk-gen-images.ps1 -ProjectId <PID> [-VideoId <VID>]
+
+Policy, abort conditions, and pipeline order in this file still apply.
+
 ## Step 0: Detect orientation
 
 ```bash

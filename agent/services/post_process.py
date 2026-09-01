@@ -39,15 +39,26 @@ def trim_video(input_path: str, output_path: str, start: float, end: float) -> b
     return True
 
 
+def format_concat_entry(path: str) -> str:
+    """Format a path for the ffmpeg concat demuxer (Windows-safe).
+
+    Uses forward slashes so ``C:\\Users\\...`` does not break the demuxer.
+    Single quotes in the path are escaped the same way as the bash recipes.
+    """
+    # str.replace, not Path.as_posix(): on POSIX, backslash is not a separator
+    # so Windows paths would otherwise stay as ``C:\\Users\\...``.
+    normalized = str(path).replace("\\", "/")
+    escaped = normalized.replace("'", "'\\''")
+    return f"file '{escaped}'"
+
+
 def merge_videos(video_paths: list[str], output_path: str) -> bool:
     """Concatenate videos using ffmpeg concat demuxer."""
     concat_file = output_path + ".concat.txt"
     try:
-        with open(concat_file, "w") as f:
+        with open(concat_file, "w", encoding="utf-8") as f:
             for p in video_paths:
-                # Escape single quotes to prevent path injection in concat file
-                escaped = str(p).replace("'", "'\\''")
-                f.write(f"file '{escaped}'\n")
+                f.write(format_concat_entry(p) + "\n")
 
         cmd = [
             "ffmpeg", "-y", "-f", "concat", "-safe", "0",

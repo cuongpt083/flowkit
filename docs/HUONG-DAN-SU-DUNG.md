@@ -65,7 +65,7 @@ Ví dụ kết quả: một phim ngắn 24 giây gồm 3 cảnh — mèo vũ tr�
 
 | Thứ | Để làm gì | Ghi chú |
 |-----|-----------|---------|
-| Máy tính | Chạy phần mềm | macOS hoặc Windows. Windows nên dùng **WSL** (xem bước 4) |
+| Máy tính | Chạy phần mềm | macOS hoặc Windows 10/11. Windows: **PowerShell** (`setup.ps1`) hoặc **WSL** (xem bước 4) |
 | [Google Chrome](https://www.google.com/chrome/) | Cài extension của Flow Kit | Extension **không** có trên Chrome Web Store — phải nạp tay |
 | Tài khoản Google đã dùng được [Google Flow](https://labs.google/fx/tools/flow) | Tạo ảnh và video | Cần quyền / credit trên Google Flow. Không có tài khoản Flow thì hệ thống không tạo được media |
 | Trợ lý AI: [Claude Code](https://code.claude.com/docs/en/overview), [Antigravity 2.0](https://antigravity.google/), hoặc [OpenCode](https://opencode.ai/) | Điều khiển Flow Kit bằng chat + lệnh `/fk-…` | Chọn **một**. Claude: [phần 4.6](#46-cài-claude-code-nếu-chưa-có) / [phần 13](#13-không-mua-claude-deepseek-flash--qwen-37-plus). Antigravity: [phần 15](#15-dùng-google-antigravity-20). OpenCode: [phần 16](#16-dùng-opencode) |
@@ -134,21 +134,31 @@ Cần có thư mục dự án trên máy (thường tên `flowkit` hoặc `googl
 - Nếu bạn nhận link GitHub: nhờ người rành bấm **Code → Download ZIP** rồi giải nén, **hoặc** clone bằng Git.
 - Ghi nhớ đường dẫn thư mục đó. Mọi lệnh sau này đều chạy **bên trong** thư mục này.
 
-### 4.2. Windows: bật WSL trước
+### 4.2. Windows: PowerShell (khuyến nghị) hoặc WSL
 
-Trên Windows, mở **PowerShell** (chuột phải Start → Terminal / PowerShell) và gõ:
+**Cách A — PowerShell native (Windows 10 / 11):** mở **PowerShell** trong thư mục dự án (không dùng CMD):
+
+```
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+.\setup.ps1
+```
+
+Cần Python 3.10+ từ [python.org](https://www.python.org/downloads/) (bật “Add python.exe to PATH”, **không** dùng bản Microsoft Store) và ffmpeg (`winget install Gyan.FFmpeg`). Mở cửa sổ PowerShell **mới** sau khi cài ffmpeg.
+
+**Cách B — WSL:** nếu muốn môi trường Linux (TTS GPU, statusline Claude):
 
 ```
 wsl --install
 ```
 
-Khởi động lại máy nếu được yêu cầu. Sau đó mở **Ubuntu** (icon mới trên Start) — mọi lệnh bên dưới gõ trong cửa sổ Ubuntu, không gõ trong CMD.
+Khởi động lại máy nếu được yêu cầu. Sau đó mở **Ubuntu** — mọi lệnh `./setup.sh` gõ trong cửa sổ Ubuntu.
 
 macOS: bỏ qua bước này, dùng ứng dụng **Terminal**.
 
 ### 4.3. Chạy script cài đặt
 
-Trong Terminal, vào thư mục dự án rồi chạy:
+- **Windows PowerShell:** `.\setup.ps1` (bước 4.2 cách A đã chạy rồi thì nhảy tới 4.4).
+- **macOS / Linux / WSL:** trong Terminal, vào thư mục dự án rồi chạy:
 
 ```
 ./setup.sh
@@ -157,7 +167,7 @@ Trong Terminal, vào thư mục dự án rồi chạy:
 Script sẽ kiểm tra Python, ffmpeg, Chrome, tạo môi trường ảo `venv`, cài thư viện.
 
 - Thấy `Setup complete!` → ổn.
-- Báo thiếu phần mềm → cài đúng thứ nó chỉ, rồi chạy lại `./setup.sh`.
+- Báo thiếu phần mềm → cài đúng thứ nó chỉ, rồi chạy lại script.
 
 Ví dụ trên Ubuntu / WSL nếu thiếu Python hoặc ffmpeg:
 
@@ -212,7 +222,14 @@ Muốn dùng **Antigravity** hoặc **OpenCode** thay Claude Code: bỏ qua bư�
 Mở **một cửa sổ Terminal khác** (để dành cửa sổ Claude), vào thư mục Flow Kit:
 
 ```
-source venv/bin/activate
+source venv/bin/activate        # macOS / Linux / WSL
+python -m agent.main
+```
+
+Windows PowerShell:
+
+```
+.\venv\Scripts\Activate.ps1
 python -m agent.main
 ```
 
@@ -221,6 +238,8 @@ Cửa sổ này phải **để chạy**, đừng đóng. Rồi mở cửa sổ t
 ```
 curl -s http://127.0.0.1:8100/health
 ```
+
+Windows PowerShell: `Invoke-RestMethod http://127.0.0.1:8100/health`
 
 Kết quả tốt trông giống:
 
@@ -246,9 +265,11 @@ Làm theo thứ tự này mỗi lần ngồi làm:
 2. Mở Terminal, vào thư mục Flow Kit, chạy agent:
 
    ```
-   source venv/bin/activate
+   source venv/bin/activate        # macOS / Linux / WSL
    python -m agent.main
    ```
+
+   Windows PowerShell: `.\venv\Scripts\Activate.ps1` rồi `python -m agent.main`.
 
    Để cửa sổ này chạy ngầm. Thấy dòng kiểu `Flow Kit starting` là được.
 
@@ -476,7 +497,7 @@ Khi không chắc, trong Claude gõ **`/fk-doctor`** và dán nguyên câu lỗi
 | Video kẹt **PROCESSING** quá lâu | Mạng / Flow chậm / job treo | `/fk-doctor` hoặc `/fk-status` — đừng bấm tạo lại hàng loạt |
 | Ảnh nhân vật mỗi cảnh một mặt | Quên ảnh mẫu hoặc mô tả lại ngoại hình trong cảnh | Làm xong `/fk-gen-refs` trước; cảnh chỉ viết hành động |
 | Link ảnh/video không mở được | Link Google hết hạn | `/fk-refresh-urls` |
-| Windows báo lệnh không chạy | Đang gõ trong CMD | Dùng Ubuntu (WSL) hoặc Git Bash |
+| Windows báo lệnh không chạy | Đang gõ trong CMD, hoặc `curl` là alias của PowerShell | Dùng **PowerShell** (`.\setup.ps1`, `Invoke-RestMethod`) — không dùng CMD. WSL/Git Bash vẫn được |
 
 **Đừng** tự viết script vòng lặp tạo 40 cảnh. Trợ lý đã có cách gửi hàng loạt an toàn; tự spam dễ bị Google chặn (`UNUSUAL_ACTIVITY`). Nếu bị chặn: dừng gửi → xoá cookie `google.com` và `labs.google` trong cài đặt Chrome → login lại Flow → gửi chậm hơn.
 
