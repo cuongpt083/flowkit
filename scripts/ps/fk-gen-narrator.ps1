@@ -1,4 +1,4 @@
-# Twin of skills/fk-gen-narrator.md (TTS generate after host writes narrator_text).
+﻿# Twin of skills/fk-gen-narrator.md (TTS generate after host writes narrator_text).
 # Optional -TextsJson: { "<scene_id>": "narrator text", ... } then PATCH + generate.
 param(
     [Parameter(Mandatory = $true)][string]$VideoId,
@@ -12,9 +12,9 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 
 $video = Invoke-FkApi -Method GET -Path ('/api/videos/' + $VideoId)
-$pid = $ProjectId
-if ([string]::IsNullOrWhiteSpace($pid)) { $pid = [string](Get-FkProp $video 'project_id') }
-$out = Resolve-FkOutputDir -ProjectId $pid
+$projectId = $ProjectId
+if ([string]::IsNullOrWhiteSpace($projectId)) { $projectId = [string](Get-FkProp $video 'project_id') }
+$out = Resolve-FkOutputDir -ProjectId $projectId
 $ttsDir = Join-Path $out.Path 'tts'
 New-FkDirectory $ttsDir | Out-Null
 

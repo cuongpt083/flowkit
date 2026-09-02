@@ -1,4 +1,4 @@
-# Twin of skills/fk-refresh-urls.md
+﻿# Twin of skills/fk-refresh-urls.md
 param(
     [Parameter(Mandatory = $true)][string]$VideoId,
     [string]$ProjectId
@@ -15,13 +15,13 @@ if (-not $connected -or -not $key) {
 }
 
 $video = Invoke-FkApi -Method GET -Path ('/api/videos/' + $VideoId)
-$pid = $ProjectId
-if ([string]::IsNullOrWhiteSpace($pid)) {
-    $pid = [string](Get-FkProp $video 'project_id')
+$projectId = $ProjectId
+if ([string]::IsNullOrWhiteSpace($projectId)) {
+    $projectId = [string](Get-FkProp $video 'project_id')
 }
-Write-Host ("Project: {0}  Video: {1}" -f $pid, $VideoId)
+Write-Host ("Project: {0}  Video: {1}" -f $projectId, $VideoId)
 
-$result = Invoke-FkApi -Method POST -Path ('/api/flow/refresh-urls/' + $pid)
+$result = Invoke-FkApi -Method POST -Path ('/api/flow/refresh-urls/' + $projectId)
 Write-Host ("Refreshed: {0} URLs (found {1} total)" -f (Get-FkProp $result 'refreshed' 0), (Get-FkProp $result 'found' 0))
 $err = Get-FkProp $result 'error'
 if ($err) { Write-Host ("ERROR: {0}" -f $err) }

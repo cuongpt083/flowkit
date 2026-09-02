@@ -1,4 +1,4 @@
-# Twin of skills/fk-gen-images.md — wave ROOT GENERATE_IMAGE then CONTINUATION EDIT_IMAGE
+﻿# Twin of skills/fk-gen-images.md — wave ROOT GENERATE_IMAGE then CONTINUATION EDIT_IMAGE
 param(
     [Parameter(Mandatory = $true)][string]$ProjectId,
     [string]$VideoId,
@@ -9,16 +9,16 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 
 Invoke-FkHealth -RequireExtension | Out-Null
-$pid = $ProjectId
-$video = Resolve-FkVideo -ProjectId $pid -VideoId $VideoId
+$projectId = $ProjectId
+$video = Resolve-FkVideo -ProjectId $projectId -VideoId $VideoId
 $vid = [string](Get-FkProp $video 'id')
 $ori = Get-FkOrientation -Video $video
 $prefix = Get-FkFieldPrefix $ori
 
-$chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid + '/characters'))
+$chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId + '/characters'))
 $missingRefs = @($chars | Where-Object { -not (Test-FkUuid ([string](Get-FkProp $_ 'media_id' ''))) })
 if ($missingRefs.Count -gt 0) {
-    throw ("ABORT: {0} entit(y/ies) missing media_id. Run /fk-gen-refs {1} first." -f $missingRefs.Count, $pid)
+    throw ("ABORT: {0} entit(y/ies) missing media_id. Run /fk-gen-refs {1} first." -f $missingRefs.Count, $projectId)
 }
 
 function Get-FkImageNeed {
@@ -77,7 +77,7 @@ for ($wave = 1; $wave -le $maxWaves; $wave++) {
         $reqs.Add(@{
                 type        = $rtype
                 scene_id    = $sid
-                project_id  = $pid
+                project_id  = $projectId
                 video_id    = $vid
                 orientation = $ori
             })
@@ -119,4 +119,4 @@ if ($bad -gt 0) {
     Write-Host ("WARNING: {0} scene(s) without completed UUID image." -f $bad)
     exit 1
 }
-Write-Host ("All scene images ready. Run /fk-gen-videos {0} {1} to generate videos." -f $pid, $vid)
+Write-Host ("All scene images ready. Run /fk-gen-videos {0} {1} to generate videos." -f $projectId, $vid)

@@ -1,4 +1,4 @@
-# Twin of skills/fk-monitor.md — poll + optional download.
+﻿# Twin of skills/fk-monitor.md — poll + optional download.
 # Telegram stays with the host agent: this script prints [NOTIFY] lines.
 param(
     [string]$ProjectId,
@@ -12,18 +12,18 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 
 Invoke-FkHealth -RequireExtension | Out-Null
-$pid = Resolve-FkProjectId -ProjectId $ProjectId
-$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid)
-$video = Resolve-FkVideo -ProjectId $pid -VideoId $VideoId
+$projectId = Resolve-FkProjectId -ProjectId $ProjectId
+$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId)
+$video = Resolve-FkVideo -ProjectId $projectId -VideoId $VideoId
 $vid = [string](Get-FkProp $video 'id')
 $ori = Get-FkOrientation -Video $video -Project $proj
 $prefix = Get-FkFieldPrefix $ori
-$outMeta = Resolve-FkOutputDir -ProjectId $pid
+$outMeta = Resolve-FkOutputDir -ProjectId $projectId
 $outdir = $outMeta.Path
 $name = [string](Get-FkProp $proj 'name')
 
 function Get-Snap {
-    $chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid + '/characters'))
+    $chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId + '/characters'))
     $scenes = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/scenes?video_id=' + [uri]::EscapeDataString($vid)))
     $pending = Invoke-FkApi -Method GET -Path '/api/requests/pending'
     $failed = Invoke-FkApi -Method GET -Path '/api/requests?status=FAILED'

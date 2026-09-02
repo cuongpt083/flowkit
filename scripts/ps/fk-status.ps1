@@ -1,4 +1,4 @@
-# Twin of skills/fk-status.md — Windows PowerShell 5.1
+﻿# Twin of skills/fk-status.md — Windows PowerShell 5.1
 param(
     [string]$ProjectId
 )
@@ -21,13 +21,13 @@ if ([string]::IsNullOrWhiteSpace($ProjectId)) {
     return
 }
 
-$pid = $ProjectId
-$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid)
+$projectId = $ProjectId
+$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId)
 Write-Host ''
-Write-Host ("Project: {0} ({1})" -f (Get-FkProp $proj 'name'), $pid)
+Write-Host ("Project: {0} ({1})" -f (Get-FkProp $proj 'name'), $projectId)
 Write-Host ("Material: {0}  render_mode={1}" -f (Get-FkProp $proj 'material'), (Get-FkProp $proj 'render_mode'))
 
-$chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid + '/characters'))
+$chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId + '/characters'))
 $refsReady = 0
 Write-Host ''
 Write-Host 'Entities'
@@ -41,7 +41,7 @@ foreach ($c in $chars) {
     Write-Host ('{0,-24} {1,-16} {2,-40} {3}' -f (Get-FkProp $c 'name'), (Get-FkProp $c 'entity_type'), $mid, $ready)
 }
 
-$videos = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/videos?project_id=' + [uri]::EscapeDataString($pid)))
+$videos = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/videos?project_id=' + [uri]::EscapeDataString($projectId)))
 foreach ($v in $videos) {
     $vid = [string](Get-FkProp $v 'id')
     $ori = Get-FkOrientation -Video $v -Project $proj
@@ -68,13 +68,13 @@ foreach ($v in $videos) {
     Write-Host ("Orientation: {0}" -f $ori)
     Write-Host ("Refs: {0}/{1}  Images: {2}/{3}  Videos: {4}/{3}  Upscale: {5}/{3}" -f $refsReady, $chars.Count, $imgOk, $n, $vidOk, $upOk)
     if ($refsReady -lt $chars.Count) {
-        Write-Host ("Next: /fk-gen-refs {0}" -f $pid)
+        Write-Host ("Next: /fk-gen-refs {0}" -f $projectId)
     }
     elseif ($imgOk -lt $n) {
-        Write-Host ("Next: /fk-gen-images {0} {1}" -f $pid, $vid)
+        Write-Host ("Next: /fk-gen-images {0} {1}" -f $projectId, $vid)
     }
     elseif ($vidOk -lt $n) {
-        Write-Host ("Next: /fk-gen-videos {0} {1}" -f $pid, $vid)
+        Write-Host ("Next: /fk-gen-videos {0} {1}" -f $projectId, $vid)
     }
     else {
         Write-Host ("Next: /fk-concat {0}" -f $vid)

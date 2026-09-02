@@ -1,4 +1,4 @@
-# Twin of skills/fk-pipeline.md — orchestrates existing HTTP/ffmpeg twins.
+﻿# Twin of skills/fk-pipeline.md — orchestrates existing HTTP/ffmpeg twins.
 # Review regen loops stay with the host agent (API POST review); this script
 # submits Flow batches and optional download/concat.
 param(
@@ -20,18 +20,18 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 
 Invoke-FkHealth -RequireExtension | Out-Null
-$pid = Resolve-FkProjectId -ProjectId $ProjectId
-$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid)
-$video = Resolve-FkVideo -ProjectId $pid -VideoId $VideoId
+$projectId = Resolve-FkProjectId -ProjectId $ProjectId
+$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId)
+$video = Resolve-FkVideo -ProjectId $projectId -VideoId $VideoId
 $vid = [string](Get-FkProp $video 'id')
 $ori = Get-FkOrientation -Video $video -Project $proj
 $prefix = Get-FkFieldPrefix $ori
-$outMeta = Resolve-FkOutputDir -ProjectId $pid
+$outMeta = Resolve-FkOutputDir -ProjectId $projectId
 $outdir = $outMeta.Path
 $name = [string](Get-FkProp $proj 'name')
 
 function Get-FkPipelineState {
-    $chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid + '/characters'))
+    $chars = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId + '/characters'))
     $scenes = ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/scenes?video_id=' + [uri]::EscapeDataString($vid)))
     $n = $scenes.Count
     $refsDone = @($chars | Where-Object { Test-FkUuid ([string](Get-FkProp $_ 'media_id' '')) }).Count
@@ -71,7 +71,7 @@ Write-Host ("  Refs {0}/{1}  Images {2}/{3}  Videos {4}/{3}  4K {5}/{3}  TTS {6}
 $twins = $PSScriptRoot
 if ($st.RefsDone -lt $st.RefsTotal) {
     Write-Host 'Stage REFS'
-    & (Join-Path $twins 'fk-gen-refs.ps1') -ProjectId $pid -PollSeconds $ImagePollSeconds
+    & (Join-Path $twins 'fk-gen-refs.ps1') -ProjectId $projectId -PollSeconds $ImagePollSeconds
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) { throw 'fk-gen-refs failed' }
     Write-FkNotify "REFS complete for $name"
 }
@@ -79,7 +79,7 @@ if ($st.RefsDone -lt $st.RefsTotal) {
 $st = Get-FkPipelineState
 if ($st.ImgDone -lt $st.N) {
     Write-Host 'Stage IMAGES'
-    & (Join-Path $twins 'fk-gen-images.ps1') -ProjectId $pid -VideoId $vid -PollSeconds $ImagePollSeconds
+    & (Join-Path $twins 'fk-gen-images.ps1') -ProjectId $projectId -VideoId $vid -PollSeconds $ImagePollSeconds
     Write-FkNotify "IMAGES complete for $name"
 }
 
@@ -94,10 +94,10 @@ if ($st.VidDone -lt $st.N) {
     }
     catch { }
     if ($lite) {
-        & (Join-Path $twins 'fk-gen-chain-videos.ps1') -ProjectId $pid -VideoId $vid -PollSeconds $VideoPollSeconds
+        & (Join-Path $twins 'fk-gen-chain-videos.ps1') -ProjectId $projectId -VideoId $vid -PollSeconds $VideoPollSeconds
     }
     else {
-        & (Join-Path $twins 'fk-gen-videos.ps1') -ProjectId $pid -VideoId $vid -PollSeconds $VideoPollSeconds
+        & (Join-Path $twins 'fk-gen-videos.ps1') -ProjectId $projectId -VideoId $vid -PollSeconds $VideoPollSeconds
     }
     Write-FkNotify "VIDEOS complete for $name"
 }
@@ -105,7 +105,7 @@ if ($st.VidDone -lt $st.N) {
 if (-not $SkipReview) {
     Write-Host 'Stage REVIEW (API light). Host agent should interpret scores / regen; pipeline continues.'
     try {
-        $revPath = '/api/videos/' + $vid + '/review?project_id=' + [uri]::EscapeDataString($pid) + '&mode=light&orientation=' + $ori
+        $revPath = '/api/videos/' + $vid + '/review?project_id=' + [uri]::EscapeDataString($projectId) + '&mode=light&orientation=' + $ori
         Invoke-FkApi -Method POST -Path $revPath -TimeoutSec 30 | Out-Null
     }
     catch {
@@ -137,7 +137,7 @@ if ($Upscale) {
         $reqs.Add(@{
                 type        = 'UPSCALE_VIDEO'
                 scene_id    = [string](Get-FkProp $s 'id')
-                project_id  = $pid
+                project_id  = $projectId
                 video_id    = $vid
                 orientation = $ori
             })

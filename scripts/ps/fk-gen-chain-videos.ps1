@@ -1,4 +1,4 @@
-# Twin of skills/fk-gen-chain-videos.md — patch child image as endImage, then GENERATE_VIDEO
+﻿# Twin of skills/fk-gen-chain-videos.md — patch child image as endImage, then GENERATE_VIDEO
 param(
     [Parameter(Mandatory = $true)][string]$ProjectId,
     [string]$VideoId,
@@ -9,8 +9,8 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 
 Invoke-FkHealth -RequireExtension | Out-Null
-$pid = $ProjectId
-$video = Resolve-FkVideo -ProjectId $pid -VideoId $VideoId
+$projectId = $ProjectId
+$video = Resolve-FkVideo -ProjectId $projectId -VideoId $VideoId
 $vid = [string](Get-FkProp $video 'id')
 $ori = Get-FkOrientation -Video $video
 $prefix = Get-FkFieldPrefix $ori
@@ -46,5 +46,5 @@ foreach ($s in $scenes) {
     }
 }
 
-& (Join-Path $PSScriptRoot 'fk-gen-videos.ps1') -ProjectId $pid -VideoId $vid -PollSeconds $PollSeconds
+& (Join-Path $PSScriptRoot 'fk-gen-videos.ps1') -ProjectId $projectId -VideoId $vid -PollSeconds $PollSeconds
 Write-Host 'Chained videos ready. Check concat gaps — trim 0.4-0.7s overlap at chain boundaries if needed.'

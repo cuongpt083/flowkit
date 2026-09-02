@@ -1,4 +1,4 @@
-# Twin of skills/fk-concat.md
+﻿# Twin of skills/fk-concat.md
 param(
     [Parameter(Mandatory = $true)][string]$VideoId,
     [switch]$WithTts,
@@ -15,11 +15,11 @@ Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 if ($HardCut) { $TrimHead = 0; $TrimTail = 0 }
 
 $video = Invoke-FkApi -Method GET -Path ('/api/videos/' + $VideoId)
-$pid = [string](Get-FkProp $video 'project_id')
-$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid)
+$projectId = [string](Get-FkProp $video 'project_id')
+$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId)
 $ori = Get-FkOrientation -Video $video -Project $proj
 $prefix = Get-FkFieldPrefix $ori
-$outMeta = Resolve-FkOutputDir -ProjectId $pid
+$outMeta = Resolve-FkOutputDir -ProjectId $projectId
 $outdir = $outMeta.Path
 $slug = $outMeta.Slug
 New-FkDirectory (Join-Path $outdir '4k') | Out-Null
@@ -57,7 +57,7 @@ foreach ($s in $scenes) {
 
 if ($needRefresh) {
     Write-Host 'Refreshing signed URLs (Flow tab must be open)...'
-    Invoke-FkApi -Method POST -Path ('/api/flow/refresh-urls/' + $pid) | Out-Null
+    Invoke-FkApi -Method POST -Path ('/api/flow/refresh-urls/' + $projectId) | Out-Null
     $scenes = @(ConvertTo-FkArray (Invoke-FkApi -Method GET -Path ('/api/scenes?video_id=' + [uri]::EscapeDataString($VideoId))) | Sort-Object { Get-FkProp $_ 'display_order' })
 }
 

@@ -1,4 +1,4 @@
-# Twin of skills/fk-concat-fit-narrator.md
+﻿# Twin of skills/fk-concat-fit-narrator.md
 param(
     [Parameter(Mandatory = $true)][string]$VideoId,
     [double]$Buffer = 0.5,
@@ -11,11 +11,11 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 
 $video = Invoke-FkApi -Method GET -Path ('/api/videos/' + $VideoId)
-$pid = [string](Get-FkProp $video 'project_id')
-$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid)
+$projectId = [string](Get-FkProp $video 'project_id')
+$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId)
 $ori = Get-FkOrientation -Video $video -Project $proj
 $prefix = Get-FkFieldPrefix $ori
-$outMeta = Resolve-FkOutputDir -ProjectId $pid
+$outMeta = Resolve-FkOutputDir -ProjectId $projectId
 $outdir = $outMeta.Path
 $slug = $outMeta.Slug
 $trimDir = Join-Path $outdir 'trimmed'

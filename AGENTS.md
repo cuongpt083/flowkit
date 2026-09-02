@@ -16,7 +16,7 @@ curl -s http://127.0.0.1:8100/health
 1. **Media ID is always UUID** — format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. Never use `CAMS...` / base64 strings. JSON may send `null` for missing ids/urls — slice with `(s.get("horizontal_video_media_id") or "")[:16]`, never `s.get(..., "")[:16]`.
 2. **Scene prompts = ACTION only** — never describe character appearance. Reference images handle visual consistency via `imageInputs`.
 3. **All reference images must exist before scene images** — verify every entity has `media_id` before generating scene images.
-4. **No throwaway scripts** — NEVER write Python, shell, or any script file to loop over API requests. Use `POST /api/requests/batch` to submit all requests at once, then poll `GET /api/requests/batch-status`. The server throttles automatically. Do not `echo` JSON into `/tmp/*.json`. Do not redirect a script that `print`s logs **and** `json.dumps` into the same `.json` file (`Pending: N` + payload → `JSONDecodeError`). Do not nest `python3 -c` with `\"` inside single quotes (`open(\"/tmp/...\")` → `SyntaxError`). Pipe `json.dump` to `curl --data-binary @-`. Missing `output/.../4k/*.mp4` is a download gap, not a new `GENERATE_VIDEO`.
+4. **No throwaway scripts** — NEVER write Python, shell, or any script file to loop over API requests. Use `POST /api/requests/batch` to submit all requests at once, then poll `GET /api/requests/batch-status`. The server throttles automatically. Do not `echo` JSON into `/tmp/*.json`. Do not redirect a script that `print`s logs **and** `json.dumps` into the same `.json` file (`Pending: N` + payload → `JSONDecodeError`). Do not nest `python3 -c` with `"` inside single quotes (`open("/tmp/...")` → `SyntaxError`). Pipe `json.dump` to `curl --data-binary @-`. Missing `output/.../4k/*.mp4` is a download gap, not a new `GENERATE_VIDEO`.
 5. **Locations use landscape, characters use portrait** — reference image orientation depends on entity type.
 6. **UUID extraction** — if a response gives `CAMS...` instead of UUID, extract UUID from the `fifeUrl` in the response URL: `/image/{UUID}?...`.
 7. **Cascade on regen** — regenerating an image auto-clears downstream video + upscale.
@@ -28,7 +28,7 @@ curl -s http://127.0.0.1:8100/health
 13. **Scenes are mutable** — use `PATCH /api/scenes/{sid}` to update `prompt`, `video_prompt`, `narrator_text`, `character_names` after creation. Don't delete and recreate — patch instead.
 14. **Never duplicate in-flight videos** — before `GENERATE_VIDEO`, `GET /api/requests?video_id=<VID>`. Skip any `scene_id` that already has PENDING or PROCESSING (especially if `request_id` or `media_id` is set — worker is polling Flow). Do not POST a second request. Do not restart the agent to "unstick" PENDING while `processing > 0` or the error is `UNUSUAL_ACTIVITY` / `TOO_MUCH_TRAFFIC` — wait and poll `/batch-status` every 180s.
 15. **Windows PowerShell** — execute `scripts/ps/fk-*.ps1` instead of skill bash recipes. Never emit bash (`sleep`, `/tmp`, `python3 -c`, `mkdir -p`). Never use the PowerShell `curl` alias (`Invoke-WebRequest`). POST JSON via the scripts (`Invoke-FkApi` / `Submit-FkBatch`), not `python3 -c` pipes.
-16. **Antigravity host vs Flow kitchen (policy A)** — Google Flow (agent `:8100` + Chrome extension) is the only path for entity refs, scene images, Veo clips, and 4K upscale. Antigravity **generate image** is only for storyboards, moodboards, logos, and throwaway thumbnail drafts — never `/fk-gen-refs`, `/fk-gen-images`, `/fk-gen-videos`, or official Flow thumbnails. Terminal runs `scripts/ps/fk-*.ps1`. Web search for `/fk-research`. Browser subagent keeps the Flow tab open for `/fk-refresh-urls`; do not click Generate in Flow and do not use Chrome DevTools on port **9222**. Prefer provider `agy` for `/fk-review-video` on Antigravity.
+16. **Antigravity host vs Flow kitchen (policy A)** — Google Flow (agent `:8100` + Chrome extension) is the only path for entity refs, scene images, Veo clips, and 4K upscale (`GENERATE_*` / `media_id` UUID). Antigravity built-in **generate image** is allowed only for storyboards, moodboards, logo/icon files, and throwaway thumbnail *drafts* — never as a substitute for `/fk-gen-refs`, `/fk-gen-images`, `/fk-gen-videos`, or official `/fk-thumbnail` Flow stills. Use Antigravity **Terminal** to run `scripts/ps/fk-*.ps1`. Use **web search** for `/fk-research`. Use **browser** subagent to keep the Flow tab open for login/`/fk-refresh-urls` — do not click Generate in the Flow UI and do not attach Chrome DevTools to port **9222** (extension WebSocket). Prefer provider `agy` for `/fk-review-video` when the host is Antigravity.
 
 ## Pipeline Order
 
@@ -58,7 +58,7 @@ curl -X POST http://127.0.0.1:8100/api/requests/batch \
   -d '{"requests": [{"type": "...", "scene_id": "...", "project_id": "...", "video_id": "...", "orientation": "VERTICAL"}, ...]}'
 ```
 
-Poll aggregate status:
+Poll aggregate status (video jobs: every 180s, not every few seconds):
 
 ```bash
 curl -s "http://127.0.0.1:8100/api/requests/batch-status?video_id=<VID>&type=GENERATE_IMAGE"
@@ -82,7 +82,7 @@ This project has reusable skills in `skills/`. When the user says `/fk-<name>`, 
 | `/fk-change-provider` | fk-change-provider — View & Switch AI CLI Provider (Video Review) |
 | `/fk-concat-fit-narrator` | Trim each scene video to fit its TTS narrator duration, burn text overlays, then concatenate into a final video. |
 | `/fk-concat` | Download and concatenate all scene videos into a single video with optional TTS narration. |
-| `/fk-create-project` | Create a new Google Flow video project. Ask the user for: |
+| `/fk-create-project` | Create a new Google Flow video project. |
 | `/fk-creative-mix` | Creative video mixing — combine techniques for cinematic results. |
 | `/fk-dashboard` | Show live GLA status in Claude Code statusline. |
 | `/fk-doctor` | Diagnose any FlowKit error and prescribe a fix. Knows the full error taxonomy across Google Flow, the Chrome extension, the FastAPI layer, the worker, and the YouTube upload pipeline. |
@@ -100,12 +100,12 @@ This project has reusable skills in `skills/`. When the user says `/fk-<name>`, 
 | `/fk-monitor` | fk-monitor — Full Pipeline Monitor |
 | `/fk-pipeline` | fk-pipeline — Smart Full-Pipeline Orchestrator |
 | `/fk-refresh-urls` | Refresh expired GCS signed URLs for all scenes in a video (images, videos, upscale videos) and character reference images. |
-| `/fk-render-motion` | Render Vox-style / motion-graphic clips from scene stills (Ken Burns). No AI video API. |
+| `/fk-render-motion` | fk-render-motion — Vox-style Ken Burns from scene stills |
 | `/fk-research` | fk-research — Fact-Check & Research Before Scripting |
 | `/fk-review-board` | Start the Scene Review Board web app for visual feedback on scene chains. |
 | `/fk-review-video` | Review AI-generated scene videos for quality using Claude Vision. |
 | `/fk-status` | Show full status dashboard for a project. |
-| `/fk-story-telling-design` | Design story structure before creating a Flow project |
+| `/fk-story-telling-design` | fk-story-telling-design — Design story structure before creating a Flow project |
 | `/fk-switch-project` | fk-switch-project — Switch Active Project |
 | `/fk-thumbnail-guide` | YouTube Thumbnail Guide — Hook-Worthy Design Rules |
 | `/fk-thumbnail` | Generate 4 YouTube-optimized thumbnail variants for a project video. |

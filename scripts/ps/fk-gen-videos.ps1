@@ -1,4 +1,4 @@
-# Twin of skills/fk-gen-videos.md
+﻿# Twin of skills/fk-gen-videos.md
 param(
     [Parameter(Mandatory = $true)][string]$ProjectId,
     [string]$VideoId,
@@ -9,9 +9,9 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'FkCommon.psm1') -Force
 
 Invoke-FkHealth -RequireExtension | Out-Null
-$pid = $ProjectId
-$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $pid)
-$video = Resolve-FkVideo -ProjectId $pid -VideoId $VideoId
+$projectId = $ProjectId
+$proj = Invoke-FkApi -Method GET -Path ('/api/projects/' + $projectId)
+$video = Resolve-FkVideo -ProjectId $projectId -VideoId $VideoId
 $vid = [string](Get-FkProp $video 'id')
 $ori = Get-FkOrientation -Video $video
 $prefix = Get-FkFieldPrefix $ori
@@ -29,7 +29,7 @@ foreach ($s in $scenes) {
     $st = [string](Get-FkProp $s ($prefix + '_image_status') '')
     $mid = [string](Get-FkProp $s ($prefix + '_image_media_id') '')
     if ($st -ne 'COMPLETED' -or -not (Test-FkUuid $mid)) {
-        throw ("ABORT: scene images not ready (scene {0}). Run /fk-gen-images {1} {2} first." -f (Get-FkProp $s 'id'), $pid, $vid)
+        throw ("ABORT: scene images not ready (scene {0}). Run /fk-gen-images {1} {2} first." -f (Get-FkProp $s 'id'), $projectId, $vid)
     }
 }
 
@@ -46,7 +46,7 @@ foreach ($s in $scenes) {
     $reqs.Add(@{
             type        = 'GENERATE_VIDEO'
             scene_id    = $sid
-            project_id  = $pid
+            project_id  = $projectId
             video_id    = $vid
             orientation = $ori
         })

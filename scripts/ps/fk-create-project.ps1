@@ -40,18 +40,18 @@ if ([string]::IsNullOrWhiteSpace([string]$material)) {
 
 Invoke-FkHealth -RequireExtension | Out-Null
 $created = Invoke-FkApi -Method POST -Path '/api/projects' -Body $projectSpec
-$pid = [string](Get-FkProp $created 'id')
-if (-not $pid) { $pid = [string](Get-FkProp $created 'project_id') }
-Write-Host ("Project: {0}" -f $pid)
+$projectId = [string](Get-FkProp $created 'id')
+if (-not $projectId) { $projectId = [string](Get-FkProp $created 'project_id') }
+Write-Host ("Project: {0}" -f $projectId)
 
 $videoSpec = Get-FkProp $spec 'video'
 if (-not $videoSpec) { $videoSpec = @{ title = (Get-FkProp $projectSpec 'name') } }
 if ($videoSpec -is [hashtable]) {
-    $videoSpec['project_id'] = $pid
+    $videoSpec['project_id'] = $projectId
 }
 else {
     $ht = @{
-        project_id = $pid
+        project_id = $projectId
         title      = (Get-FkProp $videoSpec 'title' (Get-FkProp $projectSpec 'name'))
     }
     $videoSpec = $ht
@@ -75,7 +75,7 @@ foreach ($sc in $scenesSpec) {
         video_id        = $vid
         display_order   = $order
         prompt          = [string](Get-FkProp $sc 'prompt')
-        character_names = @(ConvertTo-FkArray (Get-FkProp $sc 'character_names'))
+        character_names = ConvertTo-FkArray (Get-FkProp $sc 'character_names')
         chain_type      = $chain
     }
     $vp = Get-FkProp $sc 'video_prompt'
@@ -91,10 +91,10 @@ foreach ($sc in $scenesSpec) {
     Write-Host ("  scene {0} {1} {2}" -f $order, $chain, $sid)
 }
 
-Invoke-FkApi -Method PUT -Path '/api/active-project' -Body @{ project_id = $pid } | Out-Null
+Invoke-FkApi -Method PUT -Path '/api/active-project' -Body @{ project_id = $projectId } | Out-Null
 $ap = Invoke-FkApi -Method GET -Path '/api/active-project'
 Write-Host ''
-Write-Host ('Active project switched to: {0} ({1})' -f (Get-FkProp $ap 'project_name'), $pid)
+Write-Host ('Active project switched to: {0} ({1})' -f (Get-FkProp $ap 'project_name'), $projectId)
 Write-Host ("Video:        {0}" -f $vid)
 Write-Host ("Material:     {0}" -f $material)
 Write-Host 'Next: /fk-gen-refs'
